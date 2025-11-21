@@ -5,321 +5,92 @@
   <title>Admin – Question Uploader</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Supabase JS via CDN -->
+  <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 0;
-      background: #f3f6fa;
-      color: #1f2933;
-    }
-    header {
-      background: #0b63ce;
-      color: #fff;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    h1 { font-size: 1.4rem; margin: 0; }
-    main {
-      max-width: 960px;
-      margin: 1.5rem auto;
-      padding: 1.5rem;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-    }
-    .section-title {
-      font-size: 1.1rem;
-      margin-top: 1.5rem;
-      margin-bottom: 0.5rem;
-      font-weight: 600;
-    }
-    label {
-      font-size: 0.9rem;
-      font-weight: 500;
-      display: block;
-      margin-top: 0.75rem;
-      margin-bottom: 0.25rem;
-    }
-    input, textarea, select {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 0.5rem 0.6rem;
-      border-radius: 8px;
-      border: 1px solid #d0d7e2;
-      font-size: 0.9rem;
-    }
-    textarea { min-height: 80px; resize: vertical; }
-    .row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 0.75rem;
-    }
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 0.55rem 1.2rem;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.2s ease;
-    }
-    button.primary {
-      background: #0b63ce;
-      color: #fff;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-    }
-    button.primary:hover {
-      background: #074890;
-      transform: translateY(-1px);
-    }
-    button.secondary {
-      background: #e5edff;
-      color: #074890;
-    }
-    button.secondary:hover {
-      background: #d0dcff;
-    }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      font-size: 0.75rem;
-      padding: 0.1rem 0.6rem;
-      border-radius: 999px;
-      background: #e5edff;
-      color: #074890;
-      margin-left: 0.5rem;
-    }
-    .answer-block {
-      border-radius: 10px;
-      border: 1px solid #e3e8f0;
-      padding: 0.75rem;
-      margin-top: 0.75rem;
-      background: #f9fbff;
-    }
-    .answer-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.4rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-    .status {
-      margin-top: 0.75rem;
-      font-size: 0.85rem;
-    }
-    .status.ok { color: #059669; }
-    .status.err { color: #dc2626; }
-    .pill {
-      font-size: 0.8rem;
-      padding: 0.15rem 0.6rem;
-      border-radius: 999px;
-      background: #ecfdf5;
-      color: #047857;
-      margin-left: 0.5rem;
-    }
-  </style>
 </head>
 <body>
   <header>
-    <h1>Admin Panel <span class="chip">Question Uploader</span></h1>
-    <div id="user-info"></div>
+    <h1>Admin <span>Question uploader</span></h1>
+    <div class="nav-actions">
+      <button class="text" onclick="window.location.href='index.html'">Back to app</button>
+      <button id="logoutBtn" class="secondary" style="display:none;">Log out</button>
+    </div>
   </header>
 
   <main>
-    <!-- Auth -->
-    <section id="auth-section">
-      <div class="section-title">Log in as admin</div>
-      <div class="row">
-        <div>
-          <label>Email</label>
-          <input id="login-email" type="email" placeholder="admin@example.com">
-        </div>
-        <div>
-          <label>Password</label>
-          <input id="login-password" type="password" placeholder="••••••••">
-        </div>
+    <div class="card" id="authCard">
+      <div class="section-title">Admin login <span class="badge">Restricted</span></div>
+      <label>Email</label>
+      <input id="loginEmail" type="email" />
+      <label>Password</label>
+      <input id="loginPassword" type="password" />
+      <div style="margin-top:0.7rem;display:flex;gap:0.5rem;">
+        <button id="loginBtn" class="primary">Log in</button>
+        <button id="signupBtn" class="secondary">Sign up (first admin)</button>
       </div>
-      <div style="margin-top:0.75rem;">
-        <button class="primary" id="btn-login">Log in</button>
-        <button class="secondary" id="btn-signup">Sign up (for first admin)</button>
-      </div>
-      <div id="auth-status" class="status"></div>
-    </section>
+      <p id="authStatus" class="muted" style="margin-top:0.4rem;"></p>
+    </div>
 
-    <!-- Question builder -->
-    <section id="builder-section" style="display:none;">
+    <div class="card" id="builderCard" style="display:none;">
       <div class="section-title">
-        Exam & question details
-        <span class="pill">Admin-only</span>
+        Exam & question builder
+        <span class="badge">Up to 6 answer choices</span>
       </div>
+      <p class="muted" style="margin-top:0;">Select an existing exam or create a new one.</p>
 
       <label>Exam</label>
-      <div class="row">
-        <select id="exam-select"></select>
-        <div>
-          <label>New exam name (optional)</label>
-          <input id="new-exam-name" placeholder="e.g. Chest Diseases – Block 1">
-        </div>
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:0.6rem;">
+        <select id="examSelect"></select>
+        <input id="newExamTitle" placeholder="New exam title (optional)" />
       </div>
+      <label style="margin-top:0.4rem;">Exam description (for new exam)</label>
+      <input id="newExamDescription" placeholder="Short description" />
+
+      <hr style="margin:0.8rem 0;border:none;border-top:1px solid #e5e7eb;">
 
       <label>Question text</label>
-      <textarea id="question-text" placeholder="Type the stem here..."></textarea>
+      <textarea id="questionText" rows="4" style="width:100%;border-radius:12px;border:1px solid #d1d5db;padding:0.5rem;"></textarea>
 
-      <div class="row">
-        <div>
-          <label>Image URL (optional – ECG/X-ray etc.)</label>
-          <input id="media-url" placeholder="https://...">
-        </div>
-        <div>
-          <label>Difficulty</label>
-          <select id="difficulty">
-            <option value="easy">Easy</option>
-            <option value="medium" selected>Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-        </div>
+      <label style="margin-top:0.4rem;">Image URL (optional, ECG/X-ray etc.)</label>
+      <input id="mediaUrl" placeholder="https://..." />
+
+      <label style="margin-top:0.4rem;">General explanation (optional)</label>
+      <textarea id="generalExplanation" rows="3" style="width:100%;border-radius:12px;border:1px solid #d1d5db;padding:0.5rem;"></textarea>
+
+      <div class="section-title" style="margin-top:0.8rem;">Answers</div>
+      <p class="muted" style="margin-top:0;">Leave unused slots completely blank. Pick exactly one correct answer.</p>
+      <div id="answersContainer"></div>
+
+      <div style="margin-top:0.8rem;display:flex;justify-content:flex-end;gap:0.5rem;">
+        <button id="clearBtn" class="secondary">Clear form</button>
+        <button id="saveBtn" class="primary">Save question</button>
       </div>
-
-      <label>Tags (comma separated, optional)</label>
-      <input id="tags" placeholder="e.g. DVT, venous thrombosis, anticoagulation">
-
-      <div class="section-title">Answers (up to 6)</div>
-      <p style="font-size:0.8rem;margin-top:0;margin-bottom:0.25rem;">
-        Leave unused options completely blank. Exactly one option should be marked as correct.
-      </p>
-
-      <div id="answers-container"></div>
-
-      <label>General explanation (optional)</label>
-      <textarea id="general-explanation"
-        placeholder="High-level reasoning, differential diagnosis, key learning points.">
-      </textarea>
-
-      <div style="margin-top:1rem;">
-        <button class="primary" id="btn-save-question">Save question</button>
-        <button class="secondary" id="btn-clear">Clear form</button>
-      </div>
-      <div id="save-status" class="status"></div>
-    </section>
+      <p id="saveStatus" class="muted" style="margin-top:0.4rem;"></p>
+    </div>
   </main>
 
   <script>
-    // === CONFIG ===
-    const SUPABASE_URL = "https://xsrbsmjklnigrtmqkbsm.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_d82AZMNDIcPtyJUJECehRw_Rf2ZMfXV";
-    const ADMIN_EMAILS = [
-      "you@example.com",         // <--- replace with your real admin emails
-      "zaid@example.com"
-    ];
+    const SUPABASE_URL = 'https://xsrbsmjklnigrtmqkbsm.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_d82AZMNDIcPtyJUJECehRw_Rf2ZMfXV';
 
     const { createClient } = supabase;
     const client = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const authSection = document.getElementById("auth-section");
-    const builderSection = document.getElementById("builder-section");
-    const userInfo = document.getElementById("user-info");
-    const authStatus = document.getElementById("auth-status");
-    const saveStatus = document.getElementById("save-status");
-    const examSelect = document.getElementById("exam-select");
+    // ONLY these emails are admins
+    const ADMIN_EMAILS = [
+      'zaidusama2001@gmail.com'  // <- replace this with your real email
+    ];
 
-    // Build answer blocks
-    const answersContainer = document.getElementById("answers-container");
-    const ANSWER_COUNT = 6;
-    const answerBlocks = [];
+    const authCard = document.getElementById('authCard');
+    const builderCard = document.getElementById('builderCard');
+    const authStatus = document.getElementById('authStatus');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const examSelect = document.getElementById('examSelect');
+    const saveStatus = document.getElementById('saveStatus');
 
-    function buildAnswerBlocks() {
-      for (let i = 0; i < ANSWER_COUNT; i++) {
-        const block = document.createElement("div");
-        block.className = "answer-block";
-        block.innerHTML = `
-          <div class="answer-header">
-            <span>Option ${String.fromCharCode(65 + i)}</span>
-            <label style="display:flex;align-items:center;gap:0.3rem;font-weight:500;">
-              <input type="radio" name="correct-option" value="${i}">
-              Correct
-            </label>
-          </div>
-          <label>Answer text</label>
-          <textarea class="ans-text" data-index="${i}" placeholder="Answer choice ${i+1}"></textarea>
-          <label style="margin-top:0.5rem;">Explanation for this answer</label>
-          <textarea class="ans-expl" data-index="${i}" placeholder="Why this option is correct or incorrect"></textarea>
-        `;
-        answersContainer.appendChild(block);
-        answerBlocks.push(block);
-      }
-    }
-    buildAnswerBlocks();
-
-    // Helper: show messages
-    function setStatus(el, msg, ok = true) {
+    function setStatus(el, msg, good = true) {
       el.textContent = msg;
-      el.className = "status " + (ok ? "ok" : "err");
-    }
-
-    // Load exams into select
-    async function loadExams() {
-      const { data, error } = await client
-        .from("exams")
-        .select("*")
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        console.error(error);
-        setStatus(saveStatus, "Failed to load exams: " + error.message, false);
-        return;
-      }
-
-      examSelect.innerHTML = "";
-      if (!data || data.length === 0) {
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = "No exams yet – create one with 'New exam name'";
-        examSelect.appendChild(opt);
-        return;
-      }
-
-      for (const exam of data) {
-        const opt = document.createElement("option");
-        opt.value = exam.id;
-        opt.textContent = exam.name;
-        examSelect.appendChild(opt);
-      }
-    }
-
-    // Auth handling
-    async function handleLogin(isSignup = false) {
-      const email = document.getElementById("login-email").value.trim();
-      const password = document.getElementById("login-password").value;
-
-      if (!email || !password) {
-        setStatus(authStatus, "Email and password are required.", false);
-        return;
-      }
-
-      try {
-        let res;
-        if (isSignup) {
-          res = await client.auth.signUp({ email, password });
-        } else {
-          res = await client.auth.signInWithPassword({ email, password });
-        }
-
-        if (res.error) {
-          console.error(res.error);
-          setStatus(authStatus, res.error.message, false);
-          return;
-        }
-
-        await onAuthChange();
-      } catch (err) {
-        console.error(err);
-        setStatus(authStatus, err.message, false);
-      }
+      el.style.color = good ? '#059669' : '#dc2626';
     }
 
     async function onAuthChange() {
@@ -327,86 +98,150 @@
       const user = data?.user || null;
 
       if (!user) {
-        authSection.style.display = "block";
-        builderSection.style.display = "none";
-        userInfo.textContent = "";
+        authCard.style.display = 'block';
+        builderCard.style.display = 'none';
+        logoutBtn.style.display = 'none';
+        authStatus.textContent = '';
         return;
       }
 
-      const email = user.email || "";
-      const isAdmin = ADMIN_EMAILS.includes(email);
-
-      if (!isAdmin) {
-        authSection.style.display = "block";
-        builderSection.style.display = "none";
-        userInfo.textContent = email + " (not admin)";
-        setStatus(authStatus, "You are logged in but not authorized as admin.", false);
+      const email = user.email || '';
+      if (!ADMIN_EMAILS.includes(email)) {
+        authCard.style.display = 'block';
+        builderCard.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+        setStatus(authStatus, 'Logged in but not admin (email not allowed).', false);
+        logoutBtn.onclick = async () => {
+          await client.auth.signOut();
+          onAuthChange();
+        };
         return;
       }
 
-      authSection.style.display = "none";
-      builderSection.style.display = "block";
-      userInfo.innerHTML = `
-        ${email}
-        <button class="secondary" style="margin-left:0.75rem;" id="btn-logout">Log out</button>
-      `;
-      document.getElementById("btn-logout").addEventListener("click", async () => {
+      authCard.style.display = 'none';
+      builderCard.style.display = 'block';
+      logoutBtn.style.display = 'inline-block';
+      logoutBtn.onclick = async () => {
         await client.auth.signOut();
         onAuthChange();
-      });
-
-      setStatus(authStatus, "");
+      };
+      authStatus.textContent = '';
       await loadExams();
     }
 
-    document.getElementById("btn-login").addEventListener("click", () => handleLogin(false));
-    document.getElementById("btn-signup").addEventListener("click", () => handleLogin(true));
     client.auth.onAuthStateChange(onAuthChange);
     onAuthChange();
 
-    // Clear form
-    document.getElementById("btn-clear").addEventListener("click", () => {
-      document.getElementById("question-text").value = "";
-      document.getElementById("media-url").value = "";
-      document.getElementById("tags").value = "";
-      document.getElementById("general-explanation").value = "";
-      document.getElementById("new-exam-name").value = "";
-      document.querySelectorAll(".ans-text").forEach(el => el.value = "");
-      document.querySelectorAll(".ans-expl").forEach(el => el.value = "");
-      document.querySelectorAll("input[name='correct-option']").forEach(el => el.checked = false);
-      saveStatus.textContent = "";
-    });
+    document.getElementById('loginBtn').onclick = async () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      if (!email || !password) {
+        setStatus(authStatus, 'Email and password required.', false);
+        return;
+      }
+      const { error } = await client.auth.signInWithPassword({ email, password });
+      if (error) setStatus(authStatus, error.message, false);
+      else setStatus(authStatus, 'Logged in.', true);
+      await onAuthChange();
+    };
 
-    // Save question
-    document.getElementById("btn-save-question").addEventListener("click", async () => {
-      saveStatus.textContent = "";
+    document.getElementById('signupBtn').onclick = async () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      if (!email || !password) {
+        setStatus(authStatus, 'Email and password required.', false);
+        return;
+      }
+      const { error } = await client.auth.signUp({ email, password });
+      if (error) setStatus(authStatus, error.message, false);
+      else setStatus(authStatus, 'Sign-up OK. Check your email and then log in.', true);
+    };
 
-      const qText = document.getElementById("question-text").value.trim();
-      if (!qText) {
-        setStatus(saveStatus, "Question text is required.", false);
+    async function loadExams() {
+      const { data, error } = await client
+        .from('exams')
+        .select('id, title')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        setStatus(saveStatus, 'Failed to load exams: ' + error.message, false);
         return;
       }
 
-      const mediaUrl = document.getElementById("media-url").value.trim() || null;
-      const difficulty = document.getElementById("difficulty").value || "medium";
-      const tagsRaw = document.getElementById("tags").value.trim();
-      const tags = tagsRaw ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean) : null;
-      const generalExplanation = document.getElementById("general-explanation").value.trim() || null;
-      const newExamName = document.getElementById("new-exam-name").value.trim();
+      examSelect.innerHTML = '';
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = 'Select existing exam (or enter new title)';
+      examSelect.appendChild(none);
+
+      (data || []).forEach((exam) => {
+        const opt = document.createElement('option');
+        opt.value = exam.id;
+        opt.textContent = exam.title;
+        examSelect.appendChild(opt);
+      });
+    }
+
+    // Build answer slots
+    const answersContainer = document.getElementById('answersContainer');
+    function buildAnswerSlots() {
+      answersContainer.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const wrap = document.createElement('div');
+        wrap.style.marginBottom = '0.5rem';
+        wrap.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.2rem;">
+            <span class="muted">Option ${String.fromCharCode(65 + i)}</span>
+            <label style="font-size:0.8rem;display:flex;align-items:center;gap:0.25rem;">
+              <input type="radio" name="correctOption" value="${i}"> Correct
+            </label>
+          </div>
+          <textarea class="answer-text" data-index="${i}" rows="2"
+            style="width:100%;border-radius:12px;border:1px solid #d1d5db;padding:0.4rem;"
+            placeholder="Answer text"></textarea>
+          <textarea class="answer-expl" data-index="${i}" rows="2"
+            style="width:100%;border-radius:12px;border:1px solid #e5e7eb;margin-top:0.2rem;padding:0.4rem;font-size:0.8rem;"
+            placeholder="Explanation for why this is correct or incorrect"></textarea>
+        `;
+        answersContainer.appendChild(wrap);
+      }
+    }
+    buildAnswerSlots();
+
+    document.getElementById('clearBtn').onclick = () => {
+      document.getElementById('questionText').value = '';
+      document.getElementById('mediaUrl').value = '';
+      document.getElementById('generalExplanation').value = '';
+      document.getElementById('newExamTitle').value = '';
+      document.getElementById('newExamDescription').value = '';
+      answersContainer.querySelectorAll('.answer-text').forEach((el) => el.value = '');
+      answersContainer.querySelectorAll('.answer-expl').forEach((el) => el.value = '');
+      document.querySelectorAll('input[name="correctOption"]').forEach((el) => el.checked = false);
+      saveStatus.textContent = '';
+    };
+
+    document.getElementById('saveBtn').onclick = async () => {
+      saveStatus.textContent = '';
 
       let examId = examSelect.value || null;
+      const newTitle = document.getElementById('newExamTitle').value.trim();
+      const newDesc = document.getElementById('newExamDescription').value.trim();
 
-      // If new exam name provided, create it
-      if (newExamName) {
+      if (!examId && !newTitle) {
+        setStatus(saveStatus, 'Select an exam or enter a new title.', false);
+        return;
+      }
+
+      if (!examId && newTitle) {
         const { data, error } = await client
-          .from("exams")
-          .insert({ name: newExamName })
-          .select("id")
+          .from('exams')
+          .insert({ title: newTitle, description: newDesc || null })
+          .select('id')
           .single();
-
         if (error) {
           console.error(error);
-          setStatus(saveStatus, "Failed to create exam: " + error.message, false);
+          setStatus(saveStatus, 'Failed to create exam: ' + error.message, false);
           return;
         }
         examId = data.id;
@@ -414,83 +249,84 @@
         examSelect.value = examId;
       }
 
-      if (!examId) {
-        setStatus(saveStatus, "Select an exam or create a new one.", false);
+      const qText = document.getElementById('questionText').value.trim();
+      if (!qText) {
+        setStatus(saveStatus, 'Question text is required.', false);
         return;
       }
 
-      // Gather answers
-      const correctRadio = document.querySelector("input[name='correct-option']:checked");
+      const mediaUrl = document.getElementById('mediaUrl').value.trim() || null;
+      const generalExplanation = document.getElementById('generalExplanation').value.trim() || null;
+
+      const correctRadio = document.querySelector('input[name="correctOption"]:checked');
       if (!correctRadio) {
-        setStatus(saveStatus, "Select which option is correct.", false);
+        setStatus(saveStatus, 'Select which option is correct.', false);
         return;
       }
       const correctIndex = parseInt(correctRadio.value, 10);
 
+      const answerTexts = Array.from(document.querySelectorAll('.answer-text'));
+      const answerExpls = Array.from(document.querySelectorAll('.answer-expl'));
       const answers = [];
-      document.querySelectorAll(".ans-text").forEach((input, idx) => {
-        const text = input.value.trim();
-        const expl = document.querySelector(".ans-expl[data-index='" + idx + "']").value.trim();
-        if (!text) return; // skip empty answers
+
+      answerTexts.forEach((textEl) => {
+        const idx = parseInt(textEl.dataset.index, 10);
+        const txt = textEl.value.trim();
+        if (!txt) return;
+        const expl = answerExpls.find((e) => parseInt(e.dataset.index, 10) === idx)?.value.trim() || null;
         answers.push({
           choice_index: idx,
-          choice_text: text,
-          explanation: expl || null,
+          choice_text: txt,
+          explanation: expl,
           is_correct: idx === correctIndex
         });
       });
 
       if (answers.length < 2) {
-        setStatus(saveStatus, "Provide at least two answer choices.", false);
+        setStatus(saveStatus, 'Provide at least two answer choices.', false);
         return;
       }
 
-      // Insert question + answers in a transaction-like sequence
       try {
-        setStatus(saveStatus, "Saving...", true);
+        setStatus(saveStatus, 'Saving...', true);
 
         const { data: qData, error: qError } = await client
-          .from("questions")
+          .from('questions')
           .insert({
             exam_id: examId,
-            question_text: qText,
+            text: qText,
             media_url: mediaUrl,
-            general_explanation: generalExplanation,
-            difficulty,
-            tags
+            general_explanation: generalExplanation
           })
-          .select("id")
+          .select('id')
           .single();
 
         if (qError) {
           console.error(qError);
-          setStatus(saveStatus, "Failed to save question: " + qError.message, false);
+          setStatus(saveStatus, 'Failed to save question: ' + qError.message, false);
           return;
         }
 
-        const questionId = qData.id;
+        const qId = qData.id;
 
         const { error: aError } = await client
-          .from("answers")
+          .from('answers')
           .insert(
-            answers.map(a => ({
-              ...a,
-              question_id: questionId
-            }))
+            answers.map((a) => ({ ...a, question_id: qId }))
           );
 
         if (aError) {
           console.error(aError);
-          setStatus(saveStatus, "Question saved but answers failed: " + aError.message, false);
+          setStatus(saveStatus, 'Question saved but answers failed: ' + aError.message, false);
           return;
         }
 
-        setStatus(saveStatus, "Question + answers saved successfully.", true);
+        setStatus(saveStatus, 'Question + answers saved successfully.', true);
       } catch (err) {
         console.error(err);
-        setStatus(saveStatus, "Unexpected error: " + err.message, false);
+        setStatus(saveStatus, 'Unexpected error: ' + err.message, false);
       }
-    });
+    };
   </script>
 </body>
 </html>
