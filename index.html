@@ -1,87 +1,130 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UWorld‑like Exam Practice</title>
-    <!--
-      This page is designed to run entirely from static hosting (for example GitHub
-      Pages) and talks to your Supabase backend via the browser.  We load the
-      supabase‑js library directly from a CDN as documented in the official
-      JavaScript reference【467619416476982†L143-L156】.  The script itself lives in
-      `script.js` and is responsible for all authentication, data fetching and
-      rendering logic.
-    -->
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <meta charset="utf-8" />
+  <title>Exam Bank – UWorld-like Practice</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Supabase JS via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <header class="navbar">
-        <h1 class="title">Exam Practice Platform</h1>
-        <nav id="authNav">
-            <button id="loginBtn" class="nav‑btn" onclick="App.showLogin()">Log&nbsp;in</button>
-            <button id="signupBtn" class="nav‑btn" onclick="App.showSignup()">Sign&nbsp;up</button>
-            <button id="logoutBtn" class="nav‑btn" onclick="App.logout()" style="display:none">Sign&nbsp;out</button>
-        </nav>
-    </header>
+  <header>
+    <h1>Exam Bank <span>UWorld-style practice</span></h1>
+    <div class="nav-actions">
+      <button class="text" onclick="window.location.href='stats.html'">My Performance</button>
+      <button class="text" onclick="window.location.href='admin.html'">Admin</button>
+      <button id="loginBtn" class="secondary" onclick="App.showLogin()">Log in</button>
+      <button id="signupBtn" class="secondary" onclick="App.showSignup()">Sign up</button>
+      <button id="logoutBtn" class="primary" style="display:none;" onclick="App.logout()">Log out</button>
+    </div>
+  </header>
 
-    <!-- Authentication modals -->
-    <div id="loginModal" class="modal" style="display:none">
-        <div class="modal‑content">
-            <span class="close" onclick="App.hideModals()">&times;</span>
-            <h2>Log in</h2>
-            <label>Email:<br><input type="email" id="loginEmail" required></label>
-            <label>Password:<br><input type="password" id="loginPassword" required></label>
-            <button class="primary" onclick="App.login()">Log in</button>
-        </div>
+  <main>
+    <!-- Exams list -->
+    <div id="examSection" class="card" style="display:none;">
+      <div class="section-title">
+        Available exams
+        <span class="badge">Select one to begin</span>
+      </div>
+      <p class="muted" style="margin-top:0;">
+        Your progress and performance will be stored in your account.
+      </p>
+      <ul id="examList"></ul>
     </div>
 
-    <div id="signupModal" class="modal" style="display:none">
-        <div class="modal‑content">
-            <span class="close" onclick="App.hideModals()">&times;</span>
-            <h2>Create account</h2>
-            <label>Email:<br><input type="email" id="signupEmail" required></label>
-            <label>Password:<br><input type="password" id="signupPassword" required></label>
-            <button class="primary" onclick="App.signup()">Sign up</button>
+    <!-- Question view -->
+    <div id="questionSection" class="card" style="display:none;">
+      <div id="questionHeader">
+        <div class="section-title">
+          <span id="examTitle"></span>
         </div>
+        <div id="questionCounter" class="muted"></div>
+      </div>
+
+      <div id="questionContent">
+        <div id="questionText" class="question-text"></div>
+        <div id="questionMedia" class="question-media"></div>
+      </div>
+
+      <ul id="answerChoices"></ul>
+
+      <div id="explanationPanel" style="display:none;">
+        <div class="section-title">
+          Explanations
+        </div>
+        <ul id="explanationsList"></ul>
+      </div>
+
+      <div style="margin-top:0.8rem;display:flex;justify-content:space-between;align-items:center;">
+        <button class="secondary" onclick="App.backToExamList()">Exit to exam list</button>
+        <button id="nextBtn" class="primary" style="display:none;" onclick="App.nextQuestion()">Next</button>
+      </div>
     </div>
 
-    <main id="mainContainer">
-        <!-- Section: exam list -->
-        <section id="examSection" style="display:none">
-            <h2>Select an exam</h2>
-            <ul id="examList" class="list"></ul>
-        </section>
-        <!-- Section: question card -->
-        <section id="questionSection" style="display:none">
-            <div class="question‑header">
-                <h2 id="examTitle"></h2>
-                <p id="questionCounter"></p>
-            </div>
-            <article id="questionCard" class="card">
-                <h3 id="questionText"></h3>
-                <ul id="answerChoices" class="answers"></ul>
-                <div id="explanationPanel" class="explanations" style="display:none">
-                    <h4>Answer explanations</h4>
-                    <ul id="explanationsList"></ul>
-                </div>
-                <div class="question‑nav">
-                    <button id="nextBtn" class="secondary" onclick="App.nextQuestion()">Next question</button>
-                </div>
-            </article>
-        </section>
-        <!-- Section: statistics -->
-        <section id="statsSection" style="display:none">
-            <h2>Statistics</h2>
-            <p id="statsSummary"></p>
-            <button class="primary" onclick="App.backToExamList()">Back to exams</button>
-        </section>
-    </main>
+    <!-- Stats after finishing an exam -->
+    <div id="statsSection" class="card" style="display:none;">
+      <div class="section-title">
+        Exam summary
+      </div>
+      <div id="statsSummary"></div>
+      <div style="margin-top:0.8rem;">
+        <button class="primary" onclick="App.backToExamList()">Back to exam list</button>
+      </div>
+    </div>
 
-    <footer>
-        <p>Built with Supabase and GitHub Pages. &copy; <span id="year"></span></p>
-    </footer>
+    <div class="footer">
+      <span id="year"></span> · Self-hosted exam bank
+    </div>
+  </main>
 
-    <script src="script.js"></script>
+  <!-- Login modal -->
+  <div id="loginModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-close" onclick="App.hideModals()">&times;</div>
+      <h2>Log in</h2>
+      <label>Email</label>
+      <input id="loginEmail" type="email" />
+      <label>Password</label>
+      <input id="loginPassword" type="password" />
+      <div class="modal-actions">
+        <button class="secondary" onclick="App.hideModals()">Cancel</button>
+        <button class="primary" onclick="App.login()">Log in</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signup modal -->
+  <div id="signupModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-close" onclick="App.hideModals()">&times;</div>
+      <h2>Sign up</h2>
+      <label>Email</label>
+      <input id="signupEmail" type="email" />
+      <label>Password</label>
+      <input id="signupPassword" type="password" />
+      <div class="modal-actions">
+        <button class="secondary" onclick="App.hideModals()">Cancel</button>
+        <button class="primary" onclick="App.signup()">Sign up</button>
+      </div>
+      <p class="muted" style="margin-top:0.5rem;">
+        You may need to confirm your email before the account becomes active.
+      </p>
+    </div>
+  </div>
+
+  <!-- Fullscreen image modal -->
+  <div id="imageModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-close" onclick="App.hideImage()">&times;</div>
+      <div style="text-align:center;">
+        <img id="imageModalImg" src="" alt="Question image" />
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
