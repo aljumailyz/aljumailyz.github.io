@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Question Tagger – Topic Labels</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      background: #f3f4f6;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .simple-card {
+      max-width: 960px;
+      margin: 1.5rem auto;
+      padding: 1rem 1.2rem;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 8px 24px rgba(15,23,42,0.08);
+      border: 1px solid #e5e7eb;
+    }
+    .simple-card h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1.1rem;
+    }
+    label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: block;
+      margin-top: 0.4rem;
+    }
+    input[type="email"],
+    input[type="password"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 0.45rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 0.85rem;
+      box-sizing: border-box;
+    }
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 0.45rem 0.9rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+      margin-top: 0.6rem;
+      transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .btn:hover {
+      background: #1d4ed8;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.45);
+      transform: translateY(-1px);
+    }
+    .btn.secondary {
+      background: #e5e7eb;
+      color: #374151;
+    }
+    .btn.secondary:hover {
+      background: #d1d5db;
+    }
+    .muted {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+    .status-ok { color: #059669; }
+    .status-bad { color: #dc2626; }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.35rem;
+    }
+    .tag-pill {
+      font-size: 0.8rem;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #075985;
+    }
+    .tag-checkboxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 0.9rem;
+      margin-top: 0.4rem;
+    }
+    .tag-checkboxes label {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-top: 0;
+      font-weight: 400;
+      font-size: 0.8rem;
+    }
+    .question-box {
+      margin-top: 0.4rem;
+      padding: 0.6rem 0.7rem;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      font-size: 0.9rem;
+    }
+    .answer-item {
+      font-size: 0.85rem;
+      margin: 0.1rem 0;
+    }
+    .answer-item strong {
+      display: inline-block;
+      width: 1.1rem;
+    }
+    .top-row {
+      display:grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+      gap:0.75rem;
+      align-items:flex-end;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 style="padding:0.8rem 1.2rem;margin:0;font-size:1.2rem;">
+      Question Tagger <span style="font-weight:300;font-size:0.9rem;">Topic labels</span>
+    </h1>
+  </header>
+
+  <!-- Auth -->
+  <div class="simple-card" id="authCard">
+    <h2>Log in (same Supabase project)</h2>
+    <label>Email</label>
+    <input id="loginEmail" type="email" />
+    <label>Password</label>
+    <input id="loginPassword" type="password" />
+    <button class="btn" id="loginBtn">Log in</button>
+    <p id="authStatus" class="muted" style="margin-top:0.4rem;"></p>
+  </div>
+
+  <!-- Tagger -->
+  <div class="simple-card" id="taggerCard" style="display:none;">
+    <div class="top-row">
+      <div>
+        <h2>Tag questions by topic</h2>
+        <p class="muted">
+          1) Choose an exam. 2) Step through questions. 3) Apply topics (tags).  
+          Tags are stored in <code>questions.tags</code> (text[]).
+        </p>
+      </div>
+      <div>
+        <label>Exam</label>
+        <select id="examSelect"></select>
+      </div>
+    </div>
+
+    <div style="margin-top:0.6rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <button class="btn secondary" id="prevBtn">&larr; Previous</button>
+      <button class="btn secondary" id="nextBtn">Next &rarr;</button>
+      <button class="btn secondary" id="autoSuggestBtn">Auto-suggest tags for this question</button>
+      <button class="btn secondary" id="autoAllBtn">Auto-tag ALL in this exam</button>
+    </div>
+
+    <p class="muted" id="posLabel" style="margin-top:0.3rem;"></p>
+
+    <div id="questionBox" class="question-box">
+      <div id="questionText"></div>
+      <div id="answersBox" style="margin-top:0.4rem;"></div>
+    </div>
+
+    <label style="margin-top:0.6rem;">Current tags for this question</label>
+    <div id="currentTags" class="tag-list"></div>
+
+    <label style="margin-top:0.6rem;">Common topics</label>
+    <div id="commonTagBox" class="tag-checkboxes"></div>
+
+    <label style="margin-top:0.6rem;">Custom tags (comma separated)</label>
+    <textarea id="customTags" placeholder="e.g. DVT, hemodynamics, pulmonary embolism"></textarea>
+
+    <button class="btn" id="saveBtn">Save tags for this question</button>
+    <p id="saveStatus" class="muted" style="margin-top:0.4rem;"></p>
+  </div>
+
+  <script>
+    // === CONFIG (same as other pages) ===
+    const SUPABASE_URL = 'https://xsrbsmjklnigrtmqkbsm.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_d82AZMNDIcPtyJUJECehRw_Rf2ZMfXV';
+
+    const { createClient } = supabase;
+    const client = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const authCard = document.getElementById('authCard');
+    const taggerCard = document.getElementById('taggerCard');
+    const authStatus = document.getElementById('authStatus');
+    const saveStatus = document.getElementById('saveStatus');
+    const examSelect = document.getElementById('examSelect');
+    const questionTextEl = document.getElementById('questionText');
+    const answersBox = document.getElementById('answersBox');
+    const currentTagsEl = document.getElementById('currentTags');
+    const commonTagBox = document.getElementById('commonTagBox');
+    const customTagsEl = document.getElementById('customTags');
+    const posLabel = document.getElementById('posLabel');
+
+    const commonTopics = [
+      'DVT',
+      'Pulmonary embolism',
+      'Atrial fibrillation',
+      'Heart failure',
+      'Valvular disease',
+      'Coronary artery disease',
+      'Myocardial infarction',
+      'Arrhythmia',
+      'Pericardial disease',
+      'Pulmonary hypertension',
+      'COPD',
+      'Asthma',
+      'Pneumonia',
+      'Pleural effusion',
+      'Pneumothorax',
+      'Lung cancer',
+      'Thoracic surgery',
+      'Postoperative care',
+      'Shock',
+      'Hemodynamics'
+    ];
+
+    let questions = [];
+    let index = 0;
+
+    function setStatus(el, msg, ok = true) {
+      el.textContent = msg;
+      el.classList.remove('status-ok', 'status-bad');
+      el.classList.add(ok ? 'status-ok' : 'status-bad');
+    }
+
+    // Auth
+    async function refreshAuth() {
+      const { data } = await client.auth.getUser();
+      const user = data?.user || null;
+      if (!user) {
+        authCard.style.display = 'block';
+        taggerCard.style.display = 'none';
+        return;
+      }
+      authCard.style.display = 'none';
+      taggerCard.style.display = 'block';
+      await loadExams();
+    }
+
+    client.auth.onAuthStateChange(refreshAuth);
+    refreshAuth();
+
+    document.getElementById('loginBtn').onclick = async () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      if (!email || !password) {
+        setStatus(authStatus, 'Email and password required.', false);
+        return;
+      }
+      const { error } = await client.auth.signInWithPassword({ email, password });
+      if (error) setStatus(authStatus, error.message, false);
+      else setStatus(authStatus, 'Logged in.', true);
+      await refreshAuth();
+    };
+
+    // Load exams
+    async function loadExams() {
+      const { data, error } = await client
+        .from('exams')
+        .select('id, title')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        setStatus(authStatus, 'Error loading exams: ' + error.message, false);
+        return;
+      }
+
+      examSelect.innerHTML = '';
+      if (!data || data.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No exams found';
+        examSelect.appendChild(opt);
+        return;
+      }
+
+      data.forEach((exam, i) => {
+        const opt = document.createElement('option');
+        opt.value = exam.id;
+        opt.textContent = exam.title;
+        examSelect.appendChild(opt);
+      });
+
+      examSelect.onchange = () => loadQuestions(examSelect.value);
+      await loadQuestions(data[0].id);
+    }
+
+    // Load questions + answers for an exam
+    async function loadQuestions(examId) {
+      questions = [];
+      index = 0;
+      questionTextEl.textContent = '';
+      answersBox.innerHTML = '';
+      currentTagsEl.innerHTML = '';
+      customTagsEl.value = '';
+      posLabel.textContent = '';
+
+      if (!examId) return;
+
+      const { data, error } = await client
+        .from('questions')
+        .select('id, text, tags, answers (choice_index, choice_text, is_correct)')
+        .eq('exam_id', examId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error(error);
+        setStatus(saveStatus, 'Error loading questions: ' + error.message, false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setStatus(saveStatus, 'No questions in this exam.', false);
+        return;
+      }
+
+      questions = data.map(q => ({
+        ...q,
+        answers: (q.answers || []).sort((a, b) => a.choice_index - b.choice_index)
+      }));
+
+      buildCommonTagsUI();
+      renderQuestion();
+      setStatus(saveStatus, 'Loaded ' + questions.length + ' questions.', true);
+    }
+
+    function buildCommonTagsUI() {
+      commonTagBox.innerHTML = '';
+      commonTopics.forEach(topic => {
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = topic;
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(topic));
+        commonTagBox.appendChild(label);
+      });
+    }
+
+    function renderQuestion() {
+      if (!questions.length) return;
+      const q = questions[index];
+
+      posLabel.textContent = `Question ${index + 1} of ${questions.length}`;
+
+      questionTextEl.textContent = q.text || '';
+
+      answersBox.innerHTML = '';
+      q.answers.forEach(ans => {
+        const div = document.createElement('div');
+        div.className = 'answer-item';
+        const label = String.fromCharCode(65 + ans.choice_index);
+        const prefix = ans.is_correct ? '✓' : '';
+        div.innerHTML = `<strong>${label}.</strong> ${ans.choice_text} ${prefix ? '<span style="color:#059669;font-weight:600;">('+prefix+')</span>' : ''}`;
+        answersBox.appendChild(div);
+      });
+
+      const tags = Array.isArray(q.tags) ? q.tags : [];
+      currentTagsEl.innerHTML = '';
+      tags.forEach(t => {
+        const span = document.createElement('span');
+        span.className = 'tag-pill';
+        span.textContent = t;
+        currentTagsEl.appendChild(span);
+      });
+
+      commonTagBox.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.checked = tags.includes(cb.value);
+      });
+
+      customTagsEl.value = tags.length ? tags.join(', ') : '';
+      saveStatus.textContent = '';
+    }
+
+    document.getElementById('prevBtn').onclick = () => {
+      if (!questions.length) return;
+      if (index > 0) {
+        index--;
+        renderQuestion();
+      }
+    };
+
+    document.getElementById('nextBtn').onclick = () => {
+      if (!questions.length) return;
+      if (index < questions.length - 1) {
+        index++;
+        renderQuestion();
+      }
+    };
+
+    // Save tags for current question
+    document.getElementById('saveBtn').onclick = async () => {
+      if (!questions.length) return;
+      const q = questions[index];
+
+      const tagSet = new Set();
+
+      commonTagBox.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        if (cb.checked) tagSet.add(cb.value);
+      });
+
+      const custom = customTagsEl.value
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean);
+      custom.forEach(t => tagSet.add(t));
+
+      const tagsArr = Array.from(tagSet);
+
+      try {
+        const { error } = await client
+          .from('questions')
+          .update({ tags: tagsArr })
+          .eq('id', q.id);
+
+        if (error) {
+          console.error(error);
+          setStatus(saveStatus, 'Error saving tags: ' + error.message, false);
+          return;
+        }
+
+        questions[index].tags = tagsArr;
+        setStatus(saveStatus, 'Tags saved.', true);
+        renderQuestion();
+      } catch (e) {
+        console.error(e);
+        setStatus(saveStatus, 'Unexpected error: ' + e.message, false);
+      }
+    };
+
+    // Simple keyword → topic suggestions
+    function suggestTagsFromText(text) {
+      const t = (text || '').toLowerCase();
+      const out = new Set();
+
+      if (t.includes('deep vein thromb') || t.includes('dvt')) out.add('DVT');
+      if (t.includes('pulmonary embol') || t.includes('pe ')) out.add('Pulmonary embolism');
+      if (t.includes('atrial fibrill')) out.add('Atrial fibrillation');
+      if (t.includes('heart failure') || t.includes('reduced ejection fraction') || t.includes('hfref')) out.add('Heart failure');
+      if (t.includes('regurgitation') || t.includes('stenosis') || t.includes('valve')) out.add('Valvular disease');
+      if (t.includes('coronary') || t.includes('angina') || t.includes('stemi') || t.includes('nstemi') || t.includes('myocardial infarction')) out.add('Coronary artery disease');
+      if (t.includes('arrhythmia') || t.includes('tachycardia') || t.includes('bradycardia') || t.includes('svt') || t.includes('vt ')) out.add('Arrhythmia');
+      if (t.includes('pericard')) out.add('Pericardial disease');
+      if (t.includes('pulmonary hypertension')) out.add('Pulmonary hypertension');
+      if (t.includes('copd') || t.includes('chronic obstructive')) out.add('COPD');
+      if (t.includes('asthma')) out.add('Asthma');
+      if (t.includes('pneumonia') || t.includes('infiltrate')) out.add('Pneumonia');
+      if (t.includes('pleural effusion') || t.includes('empyema') || t.includes('chylothorax')) out.add('Pleural effusion');
+      if (t.includes('pneumothorax')) out.add('Pneumothorax');
+      if (t.includes('lung cancer') || t.includes('bronchogenic carcinoma') || t.includes('nodule')) out.add('Lung cancer');
+      if (t.includes('lobectomy') || t.includes('thoracotomy') || t.includes('thoracic surgery')) out.add('Thoracic surgery');
+      if (t.includes('postoperative') || t.includes('post-op') || t.includes('post op')) out.add('Postoperative care');
+      if (t.includes('shock') || t.includes('hypotension')) out.add('Shock');
+      if (t.includes('cardiac output') || t.includes('systemic vascular resistance') || t.includes('svr')) out.add('Hemodynamics');
+
+      return Array.from(out);
+    }
+
+    document.getElementById('autoSuggestBtn').onclick = () => {
+      if (!questions.length) return;
+      const q = questions[index];
+
+      const combinedText = [
+        q.text,
+        ...(q.answers || []).map(a => a.choice_text || '')
+      ].join(' ');
+
+      const suggested = suggestTagsFromText(combinedText);
+
+      if (!suggested.length) {
+        setStatus(saveStatus, 'No suggestions found for this question.', false);
+        return;
+      }
+
+      const existingCustom = customTagsEl.value
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean);
+
+      const combined = new Set([...existingCustom, ...suggested]);
+      customTagsEl.value = Array.from(combined).join(', ');
+
+      commonTagBox.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        if (suggested.includes(cb.value)) cb.checked = true;
+      });
+
+      setStatus(saveStatus, 'Suggested: ' + suggested.join(', '), true);
+    };
+
+    // Auto-tag all questions in exam with heuristics (non-destructive: merges)
+    document.getElementById('autoAllBtn').onclick = async () => {
+      if (!questions.length) return;
+
+      setStatus(saveStatus, 'Auto-tagging all questions...', true);
+
+      try {
+        for (let i = 0; i < questions.length; i++) {
+          const q = questions[i];
+          const combinedText = [
+            q.text,
+            ...(q.answers || []).map(a => a.choice_text || '')
+          ].join(' ');
+
+          const suggested = suggestTagsFromText(combinedText);
+          if (!suggested.length) continue;
+
+          const existing = Array.isArray(q.tags) ? q.tags : [];
+          const merged = Array.from(new Set([...existing, ...suggested]));
+
+          const { error } = await client
+            .from('questions')
+            .update({ tags: merged })
+            .eq('id', q.id);
+
+          if (error) {
+            console.error('Error auto-tagging question', q.id, error);
+          } else {
+            questions[i].tags = merged;
+          }
+        }
+
+        setStatus(saveStatus, 'Auto-tagging completed. You can fine-tune tags manually.', true);
+        renderQuestion();
+      } catch (e) {
+        console.error(e);
+        setStatus(saveStatus, 'Auto-tagging error: ' + e.message, false);
+      }
+    };
+  </script>
+</body>
+</html>
