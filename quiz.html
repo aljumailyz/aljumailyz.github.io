@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MedQBank – Quiz</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="container">
+  <div class="flex-between">
+    <h1>New Test</h1>
+    <a href="index.html" class="badge">Back to Dashboard</a>
+  </div>
+  <div id="setup-section">
+    <div class="form-row">
+      <label>Mode</label>
+      <select id="mode-select">
+        <option value="tutor">Tutor (show explanation after each question)</option>
+        <option value="timed">Timed (review explanations at the end, with timer)</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>Question pool</label>
+      <select id="pool-select">
+        <option value="mixed">All questions</option>
+        <option value="unused">Unused only</option>
+        <option value="incorrect">Incorrect-only</option>
+      </select>
+      <small>“Unused” = questions you’ve never answered. “Incorrect-only” = questions you got wrong before.</small>
+    </div>
+
+    <div class="form-row">
+      <label>Subject</label>
+      <select id="subject-select">
+        <option value="">All subjects</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>Number of questions</label>
+      <input id="num-questions" type="number" value="10" min="1" max="100">
+    </div>
+    <button id="start-btn">Start Test</button>
+    <p id="setup-message"></p>
+  </div>
+
+  <div id="quiz-section" style="display:none;">
+    <div class="flex-between">
+      <div>
+        <span class="badge" id="mode-badge"></span>
+        <span class="badge" id="subject-badge"></span>
+        <span class="badge" id="pool-badge"></span>
+      </div>
+      <div id="timer" class="badge" style="display:none;"></div>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="flex-between">
+      <div id="question-counter"></div>
+      <div id="score-badge" class="badge"></div>
+    </div>
+
+    <div id="question-container">
+      <h2 id="question-stem"></h2>
+      <img id="question-image" class="question-image" style="display:none;">
+      <div class="options">
+        <button class="option-btn" data-option="A" id="opt-A"></button>
+        <button class="option-btn" data-option="B" id="opt-B"></button>
+        <button class="option-btn" data-option="C" id="opt-C"></button>
+        <button class="option-btn" data-option="D" id="opt-D"></button>
+      </div>
+    </div>
+
+    <div id="explanation-box" style="display:none; margin-top:1rem; padding:1rem; border-radius:0.5rem; background:#f9fafb; border:1px solid #e5e7eb;">
+      <h3>Explanation</h3>
+      <p id="explanation-text"></p>
+    </div>
+
+    <div class="flex-between" style="margin-top:1rem;">
+      <button id="prev-btn" class="secondary">Previous</button>
+      <div style="display:flex; gap:0.5rem;">
+        <button id="reveal-explanation-btn" class="secondary" style="display:none;">Show / Hide Explanation</button>
+        <button id="next-btn">Next</button>
+      </div>
+    </div>
+
+    <div style="margin-top:1rem;">
+      <button id="finish-btn" class="danger">Finish Test & Review</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="quiz.js"></script>
+</body>
+</html>

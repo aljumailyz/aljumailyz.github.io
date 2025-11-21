@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MedQBank – Login</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="container">
+  <h1>MedQBank</h1>
+  <p>UWorld-style question bank for you and your colleagues.</p>
+
+  <div id="auth-section">
+    <div class="flex">
+      <div style="flex:1">
+        <h2>Login</h2>
+        <div class="form-row">
+          <label>Email</label>
+          <input id="login-email" type="email">
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input id="login-password" type="password">
+        </div>
+        <button id="login-btn">Login</button>
+      </div>
+
+      <div style="flex:1">
+        <h2>Sign up</h2>
+        <div class="form-row">
+          <label>Email</label>
+          <input id="signup-email" type="email">
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input id="signup-password" type="password">
+        </div>
+        <button id="signup-btn">Create account</button>
+      </div>
+    </div>
+    <p id="auth-message"></p>
+  </div>
+
+  <div id="dashboard" style="display:none;">
+    <div class="flex-between">
+      <h2>Dashboard</h2>
+      <button id="logout-btn" class="secondary">Logout</button>
+    </div>
+    <p>Welcome! Choose where to go:</p>
+    <ul>
+      <li><a href="quiz.html">Start a new test</a></li>
+      <li><a href="stats.html">View performance statistics</a></li>
+      <li><a href="admin.html">Admin – Add questions</a> (for you only)</li>
+    </ul>
+  </div>
+</div>
+
+<script type="module">
+  import { supabase } from './supabaseClient.js';
+
+  const authSection = document.getElementById('auth-section');
+  const dashboard = document.getElementById('dashboard');
+  const authMessage = document.getElementById('auth-message');
+
+  async function checkSession() {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      authSection.style.display = 'none';
+      dashboard.style.display = 'block';
+    } else {
+      authSection.style.display = 'block';
+      dashboard.style.display = 'none';
+    }
+  }
+
+  document.getElementById('login-btn').addEventListener('click', async () => {
+    authMessage.textContent = '';
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      authMessage.textContent = error.message;
+    } else {
+      await checkSession();
+    }
+  });
+
+  document.getElementById('signup-btn').addEventListener('click', async () => {
+    authMessage.textContent = '';
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value.trim();
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      authMessage.textContent = error.message;
+    } else {
+      authMessage.textContent = 'Sign-up successful. Check your email if confirmation is required.';
+    }
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    await checkSession();
+  });
+
+  checkSession();
+</script>
+</body>
+</html>
