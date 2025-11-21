@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UWorld‑like Exam Practice</title>
+    <!--
+      This page is designed to run entirely from static hosting (for example GitHub
+      Pages) and talks to your Supabase backend via the browser.  We load the
+      supabase‑js library directly from a CDN as documented in the official
+      JavaScript reference【467619416476982†L143-L156】.  The script itself lives in
+      `script.js` and is responsible for all authentication, data fetching and
+      rendering logic.
+    -->
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <header class="navbar">
+        <h1 class="title">Exam Practice Platform</h1>
+        <nav id="authNav">
+            <button id="loginBtn" class="nav‑btn" onclick="App.showLogin()">Log&nbsp;in</button>
+            <button id="signupBtn" class="nav‑btn" onclick="App.showSignup()">Sign&nbsp;up</button>
+            <button id="logoutBtn" class="nav‑btn" onclick="App.logout()" style="display:none">Sign&nbsp;out</button>
+        </nav>
+    </header>
+
+    <!-- Authentication modals -->
+    <div id="loginModal" class="modal" style="display:none">
+        <div class="modal‑content">
+            <span class="close" onclick="App.hideModals()">&times;</span>
+            <h2>Log in</h2>
+            <label>Email:<br><input type="email" id="loginEmail" required></label>
+            <label>Password:<br><input type="password" id="loginPassword" required></label>
+            <button class="primary" onclick="App.login()">Log in</button>
+        </div>
+    </div>
+
+    <div id="signupModal" class="modal" style="display:none">
+        <div class="modal‑content">
+            <span class="close" onclick="App.hideModals()">&times;</span>
+            <h2>Create account</h2>
+            <label>Email:<br><input type="email" id="signupEmail" required></label>
+            <label>Password:<br><input type="password" id="signupPassword" required></label>
+            <button class="primary" onclick="App.signup()">Sign up</button>
+        </div>
+    </div>
+
+    <main id="mainContainer">
+        <!-- Section: exam list -->
+        <section id="examSection" style="display:none">
+            <h2>Select an exam</h2>
+            <ul id="examList" class="list"></ul>
+        </section>
+        <!-- Section: question card -->
+        <section id="questionSection" style="display:none">
+            <div class="question‑header">
+                <h2 id="examTitle"></h2>
+                <p id="questionCounter"></p>
+            </div>
+            <article id="questionCard" class="card">
+                <h3 id="questionText"></h3>
+                <ul id="answerChoices" class="answers"></ul>
+                <div id="explanationPanel" class="explanations" style="display:none">
+                    <h4>Answer explanations</h4>
+                    <ul id="explanationsList"></ul>
+                </div>
+                <div class="question‑nav">
+                    <button id="nextBtn" class="secondary" onclick="App.nextQuestion()">Next question</button>
+                </div>
+            </article>
+        </section>
+        <!-- Section: statistics -->
+        <section id="statsSection" style="display:none">
+            <h2>Statistics</h2>
+            <p id="statsSummary"></p>
+            <button class="primary" onclick="App.backToExamList()">Back to exams</button>
+        </section>
+    </main>
+
+    <footer>
+        <p>Built with Supabase and GitHub Pages. &copy; <span id="year"></span></p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
