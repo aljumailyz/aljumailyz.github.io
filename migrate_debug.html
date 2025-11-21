@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Supabase Login Debug</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>Supabase Login Debug Page</h1>
+  <p>If this works, you should see alerts and console logs when you click the button.</p>
+
+  <label>Email: <input id="loginEmail" type="email" /></label><br />
+  <label>Password: <input id="loginPassword" type="password" /></label><br />
+  <button id="loginBtn">Log in (debug)</button>
+
+  <pre id="status" style="margin-top:1rem; padding:0.5rem; border:1px solid #ccc;"></pre>
+
+  <script>
+    const statusEl = document.getElementById('status');
+
+    function logStatus(msg) {
+      console.log('[DEBUG STATUS]', msg);
+      statusEl.textContent += msg + "\n";
+    }
+
+    logStatus('Script loaded.');
+
+    if (typeof supabase === 'undefined') {
+      logStatus('ERROR: supabase global is not defined. The CDN script did not load.');
+    } else {
+      logStatus('supabase global is present.');
+    }
+
+    const SUPABASE_URL = 'https://xsrbsmjklnigrtmqkbsm.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_d82AZMNDIcPtyJUJECehRw_Rf2ZMfXV';
+
+    try {
+      const { createClient } = supabase;
+      const client = createClient(SUPABASE_URL, SUPABASE_KEY);
+      logStatus('createClient succeeded.');
+
+      const btn = document.getElementById('loginBtn');
+      if (!btn) {
+        logStatus('ERROR: loginBtn element not found.');
+      } else {
+        logStatus('loginBtn element found, attaching click handler.');
+        btn.onclick = async () => {
+          alert('Login button clicked (debug page).');
+          logStatus('Login button clicked.');
+
+          const email = document.getElementById('loginEmail').value.trim();
+          const password = document.getElementById('loginPassword').value;
+          logStatus('Attempting signInWithPassword for: ' + email);
+
+          try {
+            const { data, error } = await client.auth.signInWithPassword({ email, password });
+            if (error) {
+              logStatus('Supabase auth error: ' + error.message);
+              alert('Supabase error: ' + error.message);
+            } else {
+              logStatus('Supabase auth success. User: ' + JSON.stringify(data));
+              alert('Login success (debug). Check console for details.');
+            }
+          } catch (e) {
+            logStatus('Exception during signInWithPassword: ' + e.message);
+            alert('Exception: ' + e.message);
+          }
+        };
+      }
+    } catch (e) {
+      logStatus('Exception while initializing Supabase: ' + e.message);
+    }
+  </script>
+</body>
+</html>
