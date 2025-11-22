@@ -13,6 +13,9 @@ const state = {
   user: null,
 };
 
+// Ensure Supabase email links return to the current domain (e.g., GitHub Pages).
+const emailRedirectTo = `${window.location.origin}${window.location.pathname}`;
+
 const setAuthUI = (message = '') => {
   if (DOM.authStatus && message) DOM.authStatus.textContent = message;
   if (DOM.btnSignout) DOM.btnSignout.style.display = state.user ? 'block' : 'none';
@@ -27,13 +30,26 @@ const auth = async (mode) => {
   const password = DOM.password.value;
   if (!email || !password) return;
   const client = supabaseClient();
+  if (!client) {
+    setAuthUI('Supabase client not ready.');
+    return;
+  }
   const action = mode === 'signup' ? client.auth.signUp : client.auth.signInWithPassword;
-  const { data, error } = await action({ email, password });
-  if (error) {
-    setAuthUI(error.message);
-  } else {
-    state.user = data.user || data.session?.user || null;
-    setAuthUI(mode === 'signup' ? 'Check your email to confirm.' : 'Signed in.');
+  const payload =
+    mode === 'signup'
+      ? { email, password, options: { emailRedirectTo } }
+      : { email, password };
+  try {
+    const { data, error } = await action(payload);
+    if (error) {
+      setAuthUI(error.message);
+    } else {
+      state.user = data.user || data.session?.user || null;
+      setAuthUI(mode === 'signup' ? 'Check your email to confirm.' : 'Signed in.');
+    }
+  } catch (err) {
+    console.error('Auth error', err);
+    setAuthUI('Unable to reach Supabase. Check your project URL/key.');
   }
 };
 
