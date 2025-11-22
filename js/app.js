@@ -34,6 +34,7 @@ const DOM = {
   btnSubmitQuestion: document.getElementById('btn-submit-question'),
   btnNextQuestion: document.getElementById('btn-next-question'),
   practiceStatus: document.getElementById('practice-status'),
+  practiceNav: document.getElementById('practice-nav'),
 };
 
 const state = {
@@ -48,7 +49,7 @@ const state = {
     bankName: '',
     questions: [],
     current: 0,
-    selected: null,
+    submissions: [],
   },
 };
 
@@ -221,7 +222,7 @@ const handleStartPractice = () => {
 };
 
 const renderPractice = () => {
-  const { questions, current, selected, bankName } = state.practice;
+  const { questions, current, submissions, bankName } = state.practice;
   if (!DOM.practice) return;
   DOM.practice.classList.toggle('hidden', !questions.length);
   if (!questions.length) {
@@ -229,6 +230,7 @@ const renderPractice = () => {
     return;
   }
   const q = questions[current];
+  const submission = submissions[current] || { selected: null, submitted: false, correct: null };
   if (DOM.practiceBank) DOM.practiceBank.textContent = bankName;
   if (DOM.practiceProgress) DOM.practiceProgress.textContent = `${current + 1} / ${questions.length}`;
   if (DOM.practiceStem) DOM.practiceStem.textContent = q.stem;
@@ -241,20 +243,40 @@ const renderPractice = () => {
     }
   }
   if (DOM.practiceOptions) {
+    const correctIdx = q.answers.findIndex((a) => a.isCorrect);
     DOM.practiceOptions.innerHTML = q.answers
       .map(
         (a, idx) => `
-        <li class="option ${selected === idx ? 'selected' : ''}" data-idx="${idx}">
+        <li class="option
+          ${submission.selected === idx ? 'selected' : ''}
+          ${submission.submitted && idx === correctIdx ? 'correct' : ''}
+          ${submission.submitted && submission.selected === idx && idx !== correctIdx ? 'incorrect' : ''}"
+          data-idx="${idx}">
           <div class="option-index">${String.fromCharCode(65 + idx)}</div>
           <div class="option-content">
             <div>${a.text}</div>
-            ${a.explanation ? `<p class="hint">${a.explanation}</p>` : ''}
+            ${submission.submitted && a.explanation ? `<p class="hint">${a.explanation}</p>` : ''}
           </div>
         </li>`,
       )
       .join('');
   }
   if (DOM.practiceStatus) DOM.practiceStatus.textContent = '';
+  if (DOM.practiceNav) {
+    DOM.practiceNav.innerHTML = questions
+      .map((_, idx) => {
+        const sub = submissions[idx] || {};
+        const classes = [
+          'nav-item',
+          idx === current ? 'active' : '',
+          sub.submitted ? (sub.correct ? 'correct' : 'incorrect') : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        return `<div class="${classes}" data-nav="${idx}">${idx + 1}</div>`;
+      })
+      .join('');
+  }
 };
 
 const loadPracticeQuestions = async (bankId, bankName) => {
@@ -275,7 +297,12 @@ const loadPracticeQuestions = async (bankId, bankName) => {
       }));
     }
   }
-  state.practice = { bankName, questions, current: 0, selected: null };
+  state.practice = {
+    bankName,
+    questions,
+    current: 0,
+    submissions: questions.map(() => ({ selected: null, submitted: false, correct: null })),
+  };
   hideLoading();
   renderPractice();
 };
@@ -283,26 +310,44 @@ const loadPracticeQuestions = async (bankId, bankName) => {
 const handleOptionClick = (event) => {
   const li = event.target.closest('.option');
   if (!li || !DOM.practiceOptions?.contains(li)) return;
-  state.practice.selected = Number(li.dataset.idx);
+  const idx = state.practice.current;
+  const submissions = state.practice.submissions.slice();
+  submissions[idx] = { ...submissions[idx], selected: Number(li.dataset.idx), submitted: false, correct: null };
+  state.practice.submissions = submissions;
   renderPractice();
 };
 
 const handleSubmitQuestion = () => {
-  const { questions, current, selected } = state.practice;
-  if (!questions.length || selected === null) {
+  const { questions, current, submissions } = state.practice;
+  const sub = submissions[current] || {};
+  if (!questions.length || sub.selected === null) {
     if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'Select an answer first.';
     return;
   }
   const q = questions[current];
   const correctIdx = q.answers.findIndex((a) => a.isCorrect);
-  const isCorrect = selected === correctIdx;
+  const isCorrect = sub.selected === correctIdx;
   if (DOM.practiceStatus) DOM.practiceStatus.textContent = isCorrect ? 'Correct!' : 'Incorrect. Review and try next.';
+  const nextSubs = submissions.slice();
+  nextSubs[current] = { selected: sub.selected, submitted: true, correct: isCorrect };
+  state.practice.submissions = nextSubs;
+  renderPractice();
 };
 
 const handleNextQuestion = () => {
-  if (!state.practice.questions.length) return;
-  state.practice.current = (state.practice.current + 1) % state.practice.questions.length;
-  state.practice.selected = null;
+  const total = state.practice.questions.length;
+  if (!total) return;
+  state.practice.current = (state.practice.current + 1) % total;
+  renderPractice();
+};
+
+const handleNavClick = (event) => {
+  const idx = event.target.dataset.nav;
+  if (idx === undefined) return;
+  const target = Number(idx);
+  if (Number.isNaN(target)) return;
+  if (target < 0 || target >= state.practice.questions.length) return;
+  state.practice.current = target;
   renderPractice();
 };
 
@@ -319,6 +364,7 @@ const init = async () => {
   DOM.practiceOptions?.addEventListener('click', handleOptionClick);
   DOM.btnSubmitQuestion?.addEventListener('click', handleSubmitQuestion);
   DOM.btnNextQuestion?.addEventListener('click', handleNextQuestion);
+  DOM.practiceNav?.addEventListener('click', handleNavClick);
   await checkSession();
   setAuthUI('');
 };
