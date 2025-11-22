@@ -82,12 +82,10 @@ const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
 
 const setDashStatus = (message = '') => {
   if (DOM.dashStatus) {
-    if (message) {
-      DOM.dashStatus.innerHTML = `<div class="access-warning"><span class="access-dot"></span><span>${message}</span></div>`;
-    } else {
-      DOM.dashStatus.textContent = '';
-    }
+    DOM.dashStatus.textContent = message || '';
   }
+  if (message) showAccessOverlay(message);
+  else hideAccessOverlay();
 };
 
 const enforceAccess = () => {
@@ -113,6 +111,18 @@ const showLoading = (message = 'Loading…') => {
 
 const hideLoading = () => {
   DOM.loadingOverlay?.classList.add('hidden');
+};
+
+const showAccessOverlay = (message) => {
+  const overlay = document.getElementById('access-overlay');
+  const msg = document.getElementById('access-message');
+  if (msg && message) msg.textContent = message;
+  overlay?.classList.remove('hidden');
+};
+
+const hideAccessOverlay = () => {
+  const overlay = document.getElementById('access-overlay');
+  overlay?.classList.add('hidden');
 };
 
 const loadBanks = async () => {
