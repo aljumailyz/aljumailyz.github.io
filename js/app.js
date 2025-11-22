@@ -30,6 +30,7 @@ const state = {
     answered: 0,
     time: 0,
   },
+  banksLoading: false,
 };
 
 // Ensure Supabase email links return to the current domain (e.g., GitHub Pages).
@@ -44,16 +45,26 @@ const stateBanks = {
   banks: [],
 };
 
+const setDashStatus = (message = '') => {
+  if (DOM.dashStatus) DOM.dashStatus.textContent = message;
+};
+
 const loadBanks = async () => {
+  state.banksLoading = true;
+  setDashStatus('Loading banks…');
   if (!supabaseAvailable()) {
     stateBanks.banks = sampleBanks;
     renderBanks();
+    state.banksLoading = false;
+    setDashStatus('');
     return;
   }
   const client = supabaseClient();
   if (!client) {
     stateBanks.banks = sampleBanks;
     renderBanks();
+    state.banksLoading = false;
+    setDashStatus('');
     return;
   }
   const { data, error } = await client.from('banks').select('id, name').order('created_at', { ascending: false });
@@ -63,6 +74,8 @@ const loadBanks = async () => {
     stateBanks.banks = data.map((b) => ({ id: b.id, name: b.name, questions: b.questions || 0 }));
   }
   renderBanks();
+  state.banksLoading = false;
+  setDashStatus('');
 };
 
 const renderBanks = () => {
@@ -165,6 +178,10 @@ const handleStartPractice = () => {
     if (DOM.bankHint) DOM.bankHint.textContent = 'Pick a bank to continue.';
     return;
   }
+  if (state.banksLoading) {
+    if (DOM.bankHint) DOM.bankHint.textContent = 'Still loading banks… try again in a moment.';
+    return;
+  }
   const bank = stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id);
   if (DOM.bankHint) DOM.bankHint.textContent = `Launching ${bank?.name || 'bank'}…`;
   if (DOM.dashStatus) DOM.dashStatus.textContent = `Practice session ready for ${bank?.name || 'selected bank'}.`;
@@ -172,7 +189,8 @@ const handleStartPractice = () => {
 };
 
 const init = async () => {
-  await loadBanks();
+  renderBanks(); // show sample immediately
+  loadBanks(); // async fetch real banks
   refreshStats();
   DOM.btnSignin?.addEventListener('click', () => auth('signin'));
   DOM.btnSignup?.addEventListener('click', () => auth('signup'));
