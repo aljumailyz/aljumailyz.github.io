@@ -35,6 +35,9 @@ const DOM = {
   btnNextQuestion: document.getElementById('btn-next-question'),
   practiceStatus: document.getElementById('practice-status'),
   practiceNav: document.getElementById('practice-nav'),
+  btnFinishQuiz: document.getElementById('btn-finish-quiz'),
+  toggleTimed: document.getElementById('toggle-timed'),
+  timerDisplay: document.getElementById('timer-display'),
 };
 
 const state = {
@@ -47,9 +50,17 @@ const state = {
   banksLoading: false,
   practice: {
     bankName: '',
+    bankId: '',
     questions: [],
     current: 0,
     submissions: [],
+    timed: false,
+    timer: {
+      duration: 30,
+      remaining: 30,
+      handle: null,
+    },
+    startedAt: null,
   },
 };
 
@@ -176,6 +187,7 @@ const signOut = async () => {
   await supabaseClient().auth.signOut();
   state.user = null;
   setAuthUI('Signed out.');
+  persistPractice(true);
 };
 
 const checkSession = async () => {
@@ -185,10 +197,12 @@ const checkSession = async () => {
   if (data?.session?.user) {
     state.user = data.session.user;
     setAuthUI('');
+    await loadStats();
   }
   client.auth.onAuthStateChange((_event, session) => {
     state.user = session?.user ?? null;
     setAuthUI('');
+    loadStats();
   });
 };
 
@@ -196,13 +210,29 @@ const setProgress = (el, value) => {
   if (el) el.style.width = `${Math.min(Math.max(value, 0), 100)}%`;
 };
 
+const loadStats = async () => {
+  if (!supabaseAvailable() || !state.user) return;
+  const client = supabaseClient();
+  const { data, error } = await client
+    .from('user_stats')
+    .select('accuracy, answered, time')
+    .eq('user_id', state.user.id)
+    .maybeSingle();
+  if (error || !data) return;
+  state.stats.accuracy = Math.round(data.accuracy || 0);
+  state.stats.answered = data.answered || 0;
+  state.stats.time = data.time || 0;
+  refreshStats();
+};
+
 const refreshStats = () => {
-  if (DOM.statAccuracy) DOM.statAccuracy.textContent = state.stats.accuracy ? `${state.stats.accuracy}%` : '—';
-  if (DOM.statAnswered) DOM.statAnswered.textContent = state.stats.answered ? state.stats.answered : '—';
-  if (DOM.statTime) DOM.statTime.textContent = state.stats.time ? `${state.stats.time} min` : '—';
-  setProgress(DOM.progressAccuracy, state.stats.accuracy || 0);
-  setProgress(DOM.progressAnswered, Math.min((state.stats.answered / 200) * 100, 100));
-  setProgress(DOM.progressTime, Math.min((state.stats.time / 300) * 100, 100));
+  const { accuracy, answered, time } = state.stats;
+  if (DOM.statAccuracy) DOM.statAccuracy.textContent = accuracy ? `${accuracy}%` : '—';
+  if (DOM.statAnswered) DOM.statAnswered.textContent = answered ? answered : '—';
+  if (DOM.statTime) DOM.statTime.textContent = time ? `${time} min` : '—';
+  setProgress(DOM.progressAccuracy, accuracy || 0);
+  setProgress(DOM.progressAnswered, Math.min(((answered || 0) / 200) * 100, 100));
+  setProgress(DOM.progressTime, Math.min(((time || 0) / 300) * 100, 100));
 };
 
 const handleStartPractice = () => {
@@ -222,7 +252,7 @@ const handleStartPractice = () => {
 };
 
 const renderPractice = () => {
-  const { questions, current, submissions, bankName } = state.practice;
+  const { questions, current, submissions, bankName, timed, timer } = state.practice;
   if (!DOM.practice) return;
   DOM.practice.classList.toggle('hidden', !questions.length);
   if (!questions.length) {
@@ -262,6 +292,8 @@ const renderPractice = () => {
       .join('');
   }
   if (DOM.practiceStatus) DOM.practiceStatus.textContent = '';
+  if (DOM.toggleTimed) DOM.toggleTimed.checked = timed;
+  if (DOM.timerDisplay) DOM.timerDisplay.textContent = timed ? `${timer.remaining}s` : '--';
   if (DOM.practiceNav) {
     DOM.practiceNav.innerHTML = questions
       .map((_, idx) => {
@@ -286,25 +318,52 @@ const loadPracticeQuestions = async (bankId, bankName) => {
   if (client) {
     const { data, error } = await client
       .from('questions')
-      .select('stem, image_url, answers')
+      .select('id, stem, image_url, answers')
       .eq('bank_id', bankId)
       .order('created_at', { ascending: false });
     if (!error && data?.length) {
       questions = data.map((q) => ({
+        id: q.id,
         stem: q.stem,
         imageUrl: q.image_url,
         answers: q.answers || [],
       }));
     }
   }
+  if (!questions.length) {
+    // fallback to sample if none
+    questions = [
+      {
+        id: null,
+        stem: 'No questions found for this bank.',
+        imageUrl: null,
+        answers: [
+          { text: 'Return', explanation: '', isCorrect: true },
+          { text: 'Contact admin', explanation: '', isCorrect: false },
+        ],
+      },
+    ];
+  }
   state.practice = {
     bankName,
+    bankId,
     questions,
     current: 0,
-    submissions: questions.map(() => ({ selected: null, submitted: false, correct: null })),
+    submissions: questions.map(() => ({ selected: null, submitted: false, correct: null, questionId: null })),
+    timed: Boolean(DOM.toggleTimed?.checked),
+    timer: { duration: 30, remaining: 30, handle: null },
+    startedAt: Date.now(),
   };
+  state.practice.submissions = questions.map((q) => ({
+    selected: null,
+    submitted: false,
+    correct: null,
+    questionId: q.id || null,
+  }));
+  persistPractice();
   hideLoading();
   renderPractice();
+  startTimer();
 };
 
 const handleOptionClick = (event) => {
@@ -314,6 +373,7 @@ const handleOptionClick = (event) => {
   const submissions = state.practice.submissions.slice();
   submissions[idx] = { ...submissions[idx], selected: Number(li.dataset.idx), submitted: false, correct: null };
   state.practice.submissions = submissions;
+  persistPractice();
   renderPractice();
 };
 
@@ -329,8 +389,10 @@ const handleSubmitQuestion = () => {
   const isCorrect = sub.selected === correctIdx;
   if (DOM.practiceStatus) DOM.practiceStatus.textContent = isCorrect ? 'Correct!' : 'Incorrect. Review and try next.';
   const nextSubs = submissions.slice();
-  nextSubs[current] = { selected: sub.selected, submitted: true, correct: isCorrect };
+  nextSubs[current] = { ...nextSubs[current], selected: sub.selected, submitted: true, correct: isCorrect };
   state.practice.submissions = nextSubs;
+  logAttempt(nextSubs[current], q);
+  persistPractice();
   renderPractice();
 };
 
@@ -338,6 +400,8 @@ const handleNextQuestion = () => {
   const total = state.practice.questions.length;
   if (!total) return;
   state.practice.current = (state.practice.current + 1) % total;
+  state.practice.startedAt = Date.now();
+  resetTimer();
   renderPractice();
 };
 
@@ -348,13 +412,102 @@ const handleNavClick = (event) => {
   if (Number.isNaN(target)) return;
   if (target < 0 || target >= state.practice.questions.length) return;
   state.practice.current = target;
+  state.practice.startedAt = Date.now();
+  resetTimer();
   renderPractice();
+};
+
+const finishQuiz = () => {
+  const { questions, submissions } = state.practice;
+  if (!questions.length) {
+    if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'No questions to submit.';
+    return;
+  }
+  const allSubmitted = submissions.every((s) => s.submitted);
+  if (!allSubmitted) {
+    if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'Submit all questions first.';
+    return;
+  }
+  const correctCount = submissions.filter((s) => s.correct).length;
+  const total = questions.length;
+  const accuracyPct = Math.round((correctCount / total) * 100);
+  state.stats.answered += total;
+  state.stats.accuracy = accuracyPct;
+  refreshStats();
+  persistPractice(true);
+  startTimer();
+  if (DOM.practiceStatus) DOM.practiceStatus.textContent = `Quiz submitted. Score: ${correctCount}/${total} (${accuracyPct}%).`;
+};
+
+const persistPractice = (clear = false) => {
+  const key = 'examforge.practice';
+  if (clear) {
+    localStorage.removeItem(key);
+    return;
+  }
+  const payload = {
+    practice: state.practice,
+    stats: state.stats,
+  };
+  if (payload.practice?.timer) payload.practice.timer.handle = null;
+  localStorage.setItem(key, JSON.stringify(payload));
+};
+
+const restorePractice = () => {
+  try {
+    const raw = localStorage.getItem('examforge.practice');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed.practice?.questions?.length) {
+      state.practice = parsed.practice;
+      if (state.practice.timer) state.practice.timer.handle = null;
+      state.stats = parsed.stats || state.stats;
+      renderPractice();
+      startTimer();
+    }
+  } catch (err) {
+    console.warn('Restore failed', err);
+  }
+};
+
+const resetTimer = () => {
+  clearInterval(state.practice.timer.handle);
+  state.practice.timer.remaining = state.practice.timer.duration;
+  startTimer();
+};
+
+const startTimer = () => {
+  clearInterval(state.practice.timer.handle);
+  if (!state.practice.timed) return;
+  state.practice.timer.remaining = state.practice.timer.duration;
+  state.practice.timer.handle = setInterval(() => {
+    state.practice.timer.remaining -= 1;
+    if (DOM.timerDisplay) DOM.timerDisplay.textContent = `${state.practice.timer.remaining}s`;
+    if (state.practice.timer.remaining <= 0) {
+      clearInterval(state.practice.timer.handle);
+      handleSubmitQuestion();
+    }
+  }, 1000);
+};
+
+const logAttempt = async (submission, question) => {
+  if (!supabaseAvailable() || !state.user || !submission.questionId) return;
+  const client = supabaseClient();
+  const seconds = Math.max(1, Math.round((Date.now() - (state.practice.startedAt || Date.now())) / 1000));
+  await client.from('attempts').insert({
+    user_id: state.user.id,
+    question_id: submission.questionId,
+    selected: question.answers[submission.selected]?.text || null,
+    is_correct: submission.correct,
+    seconds_spent: seconds,
+  });
 };
 
 const init = async () => {
   renderBanks(); // show sample immediately
   loadBanks(); // async fetch real banks
   refreshStats();
+  restorePractice();
   DOM.btnSignin?.addEventListener('click', () => auth('signin'));
   DOM.btnSignup?.addEventListener('click', () => auth('signup'));
   DOM.btnSignout?.addEventListener('click', signOut);
@@ -365,6 +518,13 @@ const init = async () => {
   DOM.btnSubmitQuestion?.addEventListener('click', handleSubmitQuestion);
   DOM.btnNextQuestion?.addEventListener('click', handleNextQuestion);
   DOM.practiceNav?.addEventListener('click', handleNavClick);
+  DOM.btnFinishQuiz?.addEventListener('click', finishQuiz);
+  DOM.toggleTimed?.addEventListener('change', (e) => {
+    state.practice.timed = e.target.checked;
+    resetTimer();
+    persistPractice();
+    renderPractice();
+  });
   await checkSession();
   setAuthUI('');
 };
