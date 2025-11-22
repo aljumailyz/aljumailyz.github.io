@@ -286,6 +286,7 @@ const signOut = async () => {
   state.user = null;
   setAuthUI('Signed out.');
   persistPractice(true);
+  DOM.profilePanel?.classList.add('hidden');
 };
 
 const checkSession = async () => {
@@ -324,6 +325,19 @@ const hydrateProfileForm = () => {
   if (DOM.profileLast) DOM.profileLast.value = meta.last_name || '';
   if (DOM.profileYear) DOM.profileYear.value = meta.year || '';
   if (DOM.profilePassword) DOM.profilePassword.value = '';
+};
+
+const toggleProfilePanel = () => {
+  if (!DOM.profilePanel) return;
+  const isHidden = DOM.profilePanel.classList.contains('hidden');
+  if (isHidden) {
+    hydrateProfileForm();
+    setProfileStatus('');
+    DOM.profilePanel.classList.remove('hidden');
+  } else {
+    DOM.profilePanel.classList.add('hidden');
+    setProfileStatus('');
+  }
 };
 
 const loadStats = async () => {
@@ -752,6 +766,7 @@ const init = async () => {
   });
   DOM.btnSaveProfile?.addEventListener('click', saveProfile);
   DOM.btnChangePassword?.addEventListener('click', changePassword);
+  DOM.btnProfile?.addEventListener('click', toggleProfilePanel);
   await checkSession();
   setAuthUI('');
 };
