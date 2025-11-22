@@ -20,14 +20,14 @@
 [data-theme='dark'] {
   --bg: #0b1221;
   --panel: #0f172a;
-  --card: #111a2f;
-  --border: #1f2a40;
-  --text: #e6ecf6;
-  --muted: #9bb0d0;
+  --card: #121b30;
+  --border: #20304a;
+  --text: #e9eef8;
+  --muted: #b2c4e0;
   --primary: #58a6ff;
   --primary-strong: #3b82f6;
   --accent: #58a6ff;
-  --danger: #f87171;
+  --danger: #f78c8c;
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
 }
 
@@ -435,6 +435,7 @@ button.full {
   background: var(--card);
   display: grid;
   gap: 6px;
+  color: var(--text);
 }
 
 .practice-layout {
@@ -452,6 +453,11 @@ button.full {
   display: grid;
   gap: 8px;
   align-content: start;
+}
+
+[data-theme='dark'] .practice-nav {
+  background: #131d34;
+  border-color: #2c3b58;
 }
 
 .nav-item {
@@ -474,6 +480,23 @@ button.full {
   background: #e8f1ff;
 }
 
+[data-theme='dark'] .nav-item {
+  background: #17233b;
+  border-color: #2c3b58;
+  color: var(--text);
+}
+[data-theme='dark'] .nav-item.active {
+  background: rgba(88, 166, 255, 0.18);
+  border-color: var(--primary);
+}
+[data-theme='dark'] .nav-item.correct {
+  border-color: #2ba66c;
+  background: rgba(43, 166, 108, 0.18);
+}
+[data-theme='dark'] .nav-item.incorrect {
+  border-color: #d73d4a;
+  background: rgba(215, 61, 74, 0.18);
+}
 .nav-item.correct {
   border-color: #2ba66c;
   background: #e6f5ec;
@@ -502,6 +525,10 @@ button.full {
 .toggle input {
   width: 16px;
   height: 16px;
+}
+
+[data-theme='dark'] .hint {
+  color: var(--muted);
 }
 
 .question-card {
@@ -556,6 +583,12 @@ button.full {
   align-items: flex-start;
   cursor: pointer;
   transition: all 0.12s ease;
+  color: var(--text);
+}
+
+[data-theme='dark'] .option {
+  background: #17233b;
+  border-color: #2c3b58;
 }
 
 .option:hover {
@@ -575,6 +608,13 @@ button.full {
 .option.incorrect {
   border-color: #d73d4a;
   background: #fdebed;
+}
+
+[data-theme='dark'] .option.correct {
+  background: rgba(43, 166, 108, 0.15);
+}
+[data-theme='dark'] .option.incorrect {
+  background: rgba(215, 61, 74, 0.12);
 }
 
 .option-index {
