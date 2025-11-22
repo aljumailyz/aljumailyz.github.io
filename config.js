@@ -3,3 +3,8 @@ window.__SUPABASE_CONFIG = {
   supabaseUrl: 'https://wttfyubbhjtviixueaje.supabase.co',
   supabaseAnonKey: 'sb_publishable_hJrvlg9uF8w9gdqzuY1Atw_gn-4dRC-',
 };
+
+// Paid users allowlist (lowercase emails). Add/remove emails here to grant/revoke access.
+window.__PAID_USERS = [
+  'you@example.com',
+];
