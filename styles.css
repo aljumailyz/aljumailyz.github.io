@@ -172,6 +172,20 @@ button.full {
   letter-spacing: -0.4px;
 }
 
+.bubble-title {
+  font-size: clamp(32px, 5vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.6px;
+  background: linear-gradient(120deg, #1f7ae0, #7fb4ff);
+  -webkit-background-clip: text;
+  color: transparent;
+  text-shadow: 0 10px 30px rgba(31, 122, 224, 0.2);
+}
+[data-theme='dark'] .bubble-title {
+  background: linear-gradient(120deg, #58a6ff, #8fc7ff);
+  text-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+}
+
 .lede {
   color: var(--muted);
   margin: 0 0 14px;
@@ -183,6 +197,10 @@ button.full {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   margin-top: 12px;
+}
+
+.hero-value-grid {
+  margin-top: 18px;
 }
 
 .value-card {
