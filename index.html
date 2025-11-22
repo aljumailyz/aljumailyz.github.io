@@ -27,17 +27,29 @@
           </div>
         </div>
         <div class="auth-card">
-          <div class="input-group">
-            <label for="email">Email</label>
-            <input id="email" type="email" placeholder="you@school.edu">
-          </div>
-          <div class="input-group">
-            <label for="password">Password</label>
-            <input id="password" type="password" placeholder="••••••••">
-          </div>
-          <div class="actions">
-            <button class="primary" id="btn-signin">Sign in</button>
-            <button class="ghost" id="btn-signup">Create account</button>
+          <div class="grid split">
+            <div>
+              <div class="input-group">
+                <label for="signin-email">Sign in email</label>
+                <input id="signin-email" type="email" placeholder="you@school.edu">
+              </div>
+              <div class="input-group">
+                <label for="signin-password">Password</label>
+                <input id="signin-password" type="password" placeholder="••••••••">
+              </div>
+              <button class="primary full" id="btn-signin">Sign in</button>
+            </div>
+            <div>
+              <div class="input-group">
+                <label for="signup-email">Sign up email</label>
+                <input id="signup-email" type="email" placeholder="you@school.edu">
+              </div>
+              <div class="input-group">
+                <label for="signup-password">Password</label>
+                <input id="signup-password" type="password" placeholder="••••••••">
+              </div>
+              <button class="ghost full" id="btn-signup">Create account</button>
+            </div>
           </div>
           <button class="ghost full" id="btn-signout">Sign out</button>
           <p class="hint" id="auth-status"></p>
