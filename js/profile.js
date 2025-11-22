@@ -12,12 +12,22 @@ const DOM = {
   nameDisplay: document.getElementById('profile-name'),
   emailDisplay: document.getElementById('profile-email'),
   yearBadge: document.getElementById('profile-year-badge'),
+  toastStack: document.getElementById('toast-stack'),
 };
 
 const state = { user: null };
 
 const setStatus = (msg = '') => {
   if (DOM.status) DOM.status.textContent = msg;
+};
+
+const showToast = (message, type = 'success') => {
+  if (!DOM.toastStack) return;
+  const div = document.createElement('div');
+  div.className = `toast ${type}`;
+  div.textContent = message;
+  DOM.toastStack.appendChild(div);
+  setTimeout(() => div.remove(), 3000);
 };
 
 const hydrate = () => {
@@ -54,9 +64,13 @@ const saveProfile = async () => {
   const last = DOM.last?.value?.trim();
   const year = DOM.year?.value || '';
   const { error } = await client.auth.updateUser({ data: { first_name: first, last_name: last, year } });
-  if (error) setStatus(error.message);
+  if (error) {
+    setStatus(error.message);
+    showToast(error.message, 'error');
+  }
   else {
     setStatus('Profile updated.');
+    showToast('Profile updated.', 'success');
     const { data } = await client.auth.getSession();
     if (data?.session?.user) state.user = data.session.user;
   }
@@ -67,12 +81,18 @@ const changePassword = async () => {
   const newPass = DOM.password?.value;
   if (!newPass) {
     setStatus('Enter a new password.');
+    showToast('Enter a new password.', 'error');
     return;
   }
   const client = supabaseClient();
   const { error } = await client.auth.updateUser({ password: newPass });
-  if (error) setStatus(error.message);
-  else setStatus('Password updated.');
+  if (error) {
+    setStatus(error.message);
+    showToast(error.message, 'error');
+  } else {
+    setStatus('Password updated.');
+    showToast('Password updated.', 'success');
+  }
 };
 
 const signOut = async () => {
