@@ -532,11 +532,12 @@ const init = async () => {
   DOM.questionForm.answerEditor?.addEventListener('input', handleAnswerInput);
   DOM.questionForm.answerCount?.addEventListener('change', (e) => setAnswerCount(Number(e.target.value)));
   DOM.btnImport?.addEventListener('click', handleImportClick);
+  document.getElementById('btn-add-answer')?.addEventListener('click', addAnswer);
 
   // Question actions
   DOM.questionForm.btnSave?.addEventListener('click', saveQuestion);
   DOM.questionForm.btnReset?.addEventListener('click', resetQuestionForm);
-  document.getElementById('btn-new-question')?.addEventListener('click', addAnswer);
+  document.getElementById('btn-new-question')?.addEventListener('click', resetQuestionForm);
 
   // Bank actions
   DOM.bankList?.addEventListener('click', handleListClick);
