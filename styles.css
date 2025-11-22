@@ -19,11 +19,11 @@
 
 [data-theme='dark'] {
   --bg: #0b1221;
-  --panel: #0f172a;
-  --card: #121b30;
-  --border: #20304a;
-  --text: #e9eef8;
-  --muted: #b2c4e0;
+  --panel: #111b2e;
+  --card: #152138;
+  --border: #2c3f5e;
+  --text: #f2f6ff;
+  --muted: #c3d2ea;
   --primary: #58a6ff;
   --primary-strong: #3b82f6;
   --accent: #58a6ff;
@@ -376,6 +376,10 @@ button.full {
   border: 1px solid var(--border);
   background: #f9fbff;
 }
+[data-theme='dark'] .stat-card {
+  background: #1b2942;
+  border-color: #2c3f5e;
+}
 
 .stat-row {
   display: flex;
@@ -454,6 +458,10 @@ button.full {
   gap: 8px;
   align-content: start;
 }
+[data-theme='dark'] .practice-nav {
+  background: #1a2741;
+  border-color: #2c3f5e;
+}
 
 [data-theme='dark'] .practice-nav {
   background: #131d34;
@@ -505,6 +513,24 @@ button.full {
 .nav-item.incorrect {
   border-color: #d73d4a;
   background: #fdebed;
+}
+
+[data-theme='dark'] .nav-item {
+  background: #1f2f4e;
+  border-color: #364b6b;
+  color: var(--text);
+}
+[data-theme='dark'] .nav-item.active {
+  background: rgba(88, 166, 255, 0.25);
+  border-color: var(--primary);
+}
+[data-theme='dark'] .nav-item.correct {
+  border-color: #2ba66c;
+  background: rgba(43, 166, 108, 0.2);
+}
+[data-theme='dark'] .nav-item.incorrect {
+  border-color: #d73d4a;
+  background: rgba(215, 61, 74, 0.2);
 }
 
 .control-row {
@@ -587,8 +613,9 @@ button.full {
 }
 
 [data-theme='dark'] .option {
-  background: #17233b;
-  border-color: #2c3b58;
+  background: #1e2d49;
+  border-color: #36507a;
+  color: var(--text);
 }
 
 .option:hover {
@@ -611,10 +638,12 @@ button.full {
 }
 
 [data-theme='dark'] .option.correct {
-  background: rgba(43, 166, 108, 0.15);
+  background: rgba(43, 166, 108, 0.28);
+  border-color: #2ba66c;
 }
 [data-theme='dark'] .option.incorrect {
-  background: rgba(215, 61, 74, 0.12);
+  background: rgba(215, 61, 74, 0.24);
+  border-color: #d73d4a;
 }
 
 .option-index {
