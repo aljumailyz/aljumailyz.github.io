@@ -139,7 +139,8 @@ const renderPractice = () => {
         ]
           .filter(Boolean)
           .join(' ');
-        return `<div class="${classes}" data-nav="${idx}">${idx + 1}</div>`;
+        const flag = sub.flagged ? '<span class="nav-flag" title="Flagged question" aria-hidden="true">⚑</span>' : '';
+        return `<div class="${classes}" data-nav="${idx}">${flag}<span class="nav-number">${idx + 1}</span></div>`;
       })
       .join('');
   }

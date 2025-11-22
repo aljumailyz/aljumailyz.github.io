@@ -523,6 +523,7 @@ button.full {
   font-weight: 700;
   cursor: pointer;
   transition: all 0.12s ease;
+  position: relative;
 }
 
 .nav-item:hover {
@@ -567,6 +568,20 @@ button.full {
 .nav-item.flagged {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(31, 122, 224, 0.15);
+}
+.nav-item .nav-flag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 12px;
+  color: var(--accent);
+  line-height: 1;
+}
+[data-theme='dark'] .nav-item .nav-flag {
+  color: var(--primary);
+}
+.nav-item .nav-number {
+  display: block;
 }
 
 [data-theme='dark'] .nav-item {
