@@ -178,6 +178,37 @@ button.full {
   line-height: 1.5;
 }
 
+.value-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.value-card {
+  background: linear-gradient(180deg, #ffffff, #f6f9ff);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 12px;
+  box-shadow: 0 10px 26px rgba(15, 28, 48, 0.08);
+}
+[data-theme='dark'] .value-card {
+  background: #111b2e;
+  border-color: #2c3f5e;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.value-title {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.value-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .hero-actions {
   display: flex;
   gap: 10px;
