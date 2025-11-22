@@ -9,6 +9,9 @@ const DOM = {
   btnChangePassword: document.getElementById('btn-change-password'),
   btnSignout: document.getElementById('btn-signout'),
   status: document.getElementById('profile-status'),
+  nameDisplay: document.getElementById('profile-name'),
+  emailDisplay: document.getElementById('profile-email'),
+  yearBadge: document.getElementById('profile-year-badge'),
 };
 
 const state = { user: null };
@@ -19,6 +22,10 @@ const setStatus = (msg = '') => {
 
 const hydrate = () => {
   const meta = state.user?.user_metadata || {};
+  const fullName = `${meta.first_name || ''} ${meta.last_name || ''}`.trim() || 'Your name';
+  if (DOM.nameDisplay) DOM.nameDisplay.textContent = fullName;
+  if (DOM.emailDisplay) DOM.emailDisplay.textContent = state.user?.email || '';
+  if (DOM.yearBadge) DOM.yearBadge.textContent = meta.year || 'Year —';
   if (DOM.first) DOM.first.value = meta.first_name || '';
   if (DOM.last) DOM.last.value = meta.last_name || '';
   if (DOM.year) DOM.year.value = meta.year || '';
