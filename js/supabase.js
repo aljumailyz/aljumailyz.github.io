@@ -16,7 +16,13 @@ export const supabaseClient = () => {
   const cfg = getConfig();
   if (!cfg) return null;
   client = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-    auth: { autoRefreshToken: true, persistSession: true },
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      // Explicitly set flow type to avoid undefined this.flowType issues in Safari/older browsers.
+      flowType: 'pkce',
+    },
   });
   return client;
 };
