@@ -20,7 +20,7 @@ const DOM = {
   bankSelect: document.getElementById('bank-select'),
   bankHint: document.getElementById('bank-hint'),
   btnStart: document.getElementById('btn-start'),
-  yearFilter: document.getElementById('year-filter'),
+  yearPillsFilter: document.getElementById('year-pills-filter'),
   btnProfile: document.getElementById('btn-profile'),
   btnSignoutDash: document.getElementById('btn-signout-dash'),
   profilePanel: document.getElementById('profile-panel'),
@@ -199,10 +199,15 @@ const getBankYear = (bank) => {
   return 'All';
 };
 
+const getYearFilter = () => {
+  const active = DOM.yearPillsFilter?.querySelector('.pill.active');
+  return active?.dataset.year || 'all';
+};
+
 const renderBanks = () => {
   if (!DOM.bankSelect) return;
   const banks = stateBanks.banks.length ? stateBanks.banks : sampleBanks;
-  const filter = DOM.yearFilter?.value || 'all';
+  const filter = getYearFilter();
   const filtered = banks.filter((b) => {
     const yr = getBankYear(b);
     return filter === 'all' || yr === filter;
@@ -768,6 +773,13 @@ const init = async () => {
   DOM.btnChangePassword?.addEventListener('click', changePassword);
   DOM.btnProfile?.addEventListener('click', () => {
     window.location.href = 'profile.html';
+  });
+  DOM.yearPillsFilter?.addEventListener('click', (event) => {
+    const pill = event.target.closest('.pill');
+    if (!pill?.dataset.year) return;
+    [...DOM.yearPillsFilter.querySelectorAll('.pill')].forEach((p) => p.classList.remove('active'));
+    pill.classList.add('active');
+    renderBanks();
   });
   await checkSession();
   setAuthUI('');
