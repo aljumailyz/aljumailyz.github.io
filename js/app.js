@@ -35,16 +35,41 @@ const state = {
 // Ensure Supabase email links return to the current domain (e.g., GitHub Pages).
 const emailRedirectTo = `${window.location.origin}${window.location.pathname}`;
 
-const banks = [
-  { id: 'medicine', name: 'Medicine – Core Review', questions: 120 },
-  { id: 'step-style', name: 'Step-style Practice', questions: 80 },
-  { id: 'custom', name: 'Custom / drafts', questions: 20 },
+const sampleBanks = [
+  { id: 'sample-medicine', name: 'Medicine – Sample', questions: 20 },
+  { id: 'sample-step', name: 'Step-style Sample', questions: 12 },
 ];
+
+const stateBanks = {
+  banks: [],
+};
+
+const loadBanks = async () => {
+  if (!supabaseAvailable()) {
+    stateBanks.banks = sampleBanks;
+    renderBanks();
+    return;
+  }
+  const client = supabaseClient();
+  if (!client) {
+    stateBanks.banks = sampleBanks;
+    renderBanks();
+    return;
+  }
+  const { data, error } = await client.from('banks').select('id, name').order('created_at', { ascending: false });
+  if (error || !data?.length) {
+    stateBanks.banks = sampleBanks;
+  } else {
+    stateBanks.banks = data.map((b) => ({ id: b.id, name: b.name, questions: b.questions || 0 }));
+  }
+  renderBanks();
+};
 
 const renderBanks = () => {
   if (!DOM.bankSelect) return;
+  const banks = stateBanks.banks.length ? stateBanks.banks : sampleBanks;
   const options = ['<option value="">Choose a bank…</option>']
-    .concat(banks.map((b) => `<option value="${b.id}">${b.name} (${b.questions})</option>`))
+    .concat(banks.map((b) => `<option value="${b.id}">${b.name}${b.questions ? ` (${b.questions})` : ''}</option>`))
     .join('');
   DOM.bankSelect.innerHTML = options;
 };
@@ -140,14 +165,14 @@ const handleStartPractice = () => {
     if (DOM.bankHint) DOM.bankHint.textContent = 'Pick a bank to continue.';
     return;
   }
-  const bank = banks.find((b) => b.id === id);
+  const bank = stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id);
   if (DOM.bankHint) DOM.bankHint.textContent = `Launching ${bank?.name || 'bank'}…`;
   if (DOM.dashStatus) DOM.dashStatus.textContent = `Practice session ready for ${bank?.name || 'selected bank'}.`;
   // Hook: load the chosen bank's questions here.
 };
 
 const init = async () => {
-  renderBanks();
+  await loadBanks();
   refreshStats();
   DOM.btnSignin?.addEventListener('click', () => auth('signin'));
   DOM.btnSignup?.addEventListener('click', () => auth('signup'));
