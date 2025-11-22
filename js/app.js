@@ -605,6 +605,10 @@ const logAttempt = async (submission, question) => {
   if (!supabaseAvailable() || !state.user || !submission.questionId) return;
   const client = supabaseClient();
   const seconds = Math.max(1, Math.round((Date.now() - (state.practice.startedAt || Date.now())) / 1000));
+  // Update local stats time (store minutes)
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  state.stats.time += minutes;
+  refreshStats();
   await client.from('attempts').insert({
     user_id: state.user.id,
     question_id: submission.questionId,
