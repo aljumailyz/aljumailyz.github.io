@@ -766,7 +766,9 @@ const init = async () => {
   });
   DOM.btnSaveProfile?.addEventListener('click', saveProfile);
   DOM.btnChangePassword?.addEventListener('click', changePassword);
-  DOM.btnProfile?.addEventListener('click', toggleProfilePanel);
+  DOM.btnProfile?.addEventListener('click', () => {
+    window.location.href = 'profile.html';
+  });
   await checkSession();
   setAuthUI('');
 };
