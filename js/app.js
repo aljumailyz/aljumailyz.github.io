@@ -82,6 +82,16 @@ const stateBanks = {
 
 const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
 
+// Fisher-Yates shuffle
+const shuffleArray = (arr = []) => {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
 const setDashStatus = (message = '') => {
   if (DOM.dashStatus) {
     DOM.dashStatus.textContent = message || '';
@@ -378,7 +388,7 @@ const loadPracticeQuestions = async (bankId, bankName, timedSelection = false) =
         id: q.id,
         stem: q.stem,
         imageUrl: q.image_url,
-        answers: q.answers || [],
+        answers: shuffleArray(q.answers || []),
       }));
     }
   }
@@ -396,6 +406,9 @@ const loadPracticeQuestions = async (bankId, bankName, timedSelection = false) =
       },
     ];
   }
+  // Shuffle question order as well
+  questions = shuffleArray(questions);
+
   state.practice = {
     bankName,
     bankId,
