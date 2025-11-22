@@ -374,6 +374,15 @@ const normalizeAnswers = (answers = []) => {
   return normalized;
 };
 
+const parseJSONWithCleanup = (text) => {
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, '');
+    if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+  }
+  return JSON.parse(cleaned);
+};
+
 const parseExamJSON = (raw) => {
   if (!raw?.bank?.name) throw new Error('Missing bank.name');
   if (!Array.isArray(raw.questions) || !raw.questions.length) throw new Error('No questions found');
@@ -420,7 +429,7 @@ const handleImportClick = async () => {
   setImportStatus('Reading file...');
   try {
     const text = await file.text();
-    const parsed = parseExamJSON(JSON.parse(text));
+    const parsed = parseExamJSON(parseJSONWithCleanup(text));
     setImportStatus('Importing to Supabase...');
     await importExam(parsed);
   } catch (err) {
