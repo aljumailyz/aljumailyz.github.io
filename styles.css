@@ -758,6 +758,42 @@ textarea {
   animation: spin 0.8s linear infinite;
 }
 
+/* Access gate overlay */
+.access-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 28, 48, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 30;
+}
+
+.access-card {
+  background: #ffffff;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  border: 1px solid #f4cccc;
+  box-shadow: 0 18px 44px rgba(15, 28, 48, 0.22);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.access-copy .card-title {
+  margin: 0;
+}
+
+.access-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e74c3c;
+  box-shadow: 0 0 0 8px rgba(231, 76, 60, 0.16);
+  flex-shrink: 0;
+}
+
 /* Access gate */
 .access-warning {
   border: 1px solid #f7c5c5;
