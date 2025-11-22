@@ -28,6 +28,9 @@ const DOM = {
   userSearch: document.getElementById('user-search'),
   userList: document.getElementById('user-list'),
   dashStatus: document.getElementById('dash-status'),
+  importFile: document.getElementById('import-file'),
+  btnImport: document.getElementById('btn-import'),
+  importStatus: document.getElementById('import-status'),
 };
 
 const state = {
@@ -45,6 +48,10 @@ const setDashStatus = (message = '') => {
 
 const setQuestionStatus = (message = '') => {
   if (DOM.questionForm.status) DOM.questionForm.status.textContent = message;
+};
+
+const setImportStatus = (message = '') => {
+  if (DOM.importStatus) DOM.importStatus.textContent = message;
 };
 
 const getClient = () => {
@@ -355,6 +362,72 @@ const setAuthUI = (message = '') => {
   }
 };
 
+const normalizeAnswers = (answers = []) => {
+  const arr = Array.isArray(answers) ? answers.slice(0, 6) : [];
+  const normalized = arr.map((a) => ({
+    text: a?.text || '',
+    explanation: a?.explanation || '',
+    isCorrect: Boolean(a?.isCorrect),
+  }));
+  if (!normalized.length) normalized.push({ text: '', explanation: '', isCorrect: true });
+  if (!normalized.some((a) => a.isCorrect)) normalized[0].isCorrect = true;
+  return normalized;
+};
+
+const parseExamJSON = (raw) => {
+  if (!raw?.bank?.name) throw new Error('Missing bank.name');
+  if (!Array.isArray(raw.questions) || !raw.questions.length) throw new Error('No questions found');
+  const questions = raw.questions.map((q, idx) => {
+    if (!q.stem) throw new Error(`Question ${idx + 1} missing stem`);
+    return {
+      topic: q.topic || null,
+      stem: q.stem,
+      image_url: q.imageUrl || q.image_url || null,
+      answers: normalizeAnswers(q.answers),
+    };
+  });
+  return { bank: { name: raw.bank.name, description: raw.bank.description || '' }, questions };
+};
+
+const importExam = async (exam) => {
+  const client = getClient();
+  if (!client) return;
+  // Use existing bank by name if present, otherwise create one.
+  const existing = state.banks.find((b) => b.name.toLowerCase() === exam.bank.name.toLowerCase());
+  let bankId = existing?.id;
+  if (!bankId) {
+    const { data: bankRows, error: bankErr } = await client
+      .from('banks')
+      .insert({ name: exam.bank.name, description: exam.bank.description || '' })
+      .select()
+      .maybeSingle();
+    if (bankErr || !bankRows) throw new Error(bankErr?.message || 'Bank insert failed');
+    bankId = bankRows.id;
+  }
+  const payload = exam.questions.map((q) => ({ ...q, bank_id: bankId }));
+  const { error: qErr } = await client.from('questions').insert(payload);
+  if (qErr) throw new Error(qErr.message);
+  setImportStatus('Imported exam into Supabase.');
+  await refreshData();
+};
+
+const handleImportClick = async () => {
+  const file = DOM.importFile?.files?.[0];
+  if (!file) {
+    setImportStatus('Choose a JSON file first.');
+    return;
+  }
+  setImportStatus('Reading file...');
+  try {
+    const text = await file.text();
+    const parsed = parseExamJSON(JSON.parse(text));
+    setImportStatus('Importing to Supabase...');
+    await importExam(parsed);
+  } catch (err) {
+    setImportStatus(`Import failed: ${err.message}`);
+  }
+};
+
 const signIn = async () => {
   if (!supabaseAvailable()) {
     setAuthUI('Supabase keys missing.');
@@ -458,6 +531,7 @@ const init = async () => {
   DOM.questionForm.answerEditor?.addEventListener('click', handleListClick);
   DOM.questionForm.answerEditor?.addEventListener('input', handleAnswerInput);
   DOM.questionForm.answerCount?.addEventListener('change', (e) => setAnswerCount(Number(e.target.value)));
+  DOM.btnImport?.addEventListener('click', handleImportClick);
 
   // Question actions
   DOM.questionForm.btnSave?.addEventListener('click', saveQuestion);
