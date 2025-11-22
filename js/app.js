@@ -5,6 +5,9 @@ const DOM = {
   signinPassword: document.getElementById('signin-password'),
   signupEmail: document.getElementById('signup-email'),
   signupPassword: document.getElementById('signup-password'),
+  signupFirst: document.getElementById('signup-first'),
+  signupLast: document.getElementById('signup-last'),
+  signupYear: document.getElementById('signup-year'),
   btnSignin: document.getElementById('btn-signin'),
   btnSignup: document.getElementById('btn-signup'),
   btnSignout: document.getElementById('btn-signout'),
@@ -234,7 +237,14 @@ const auth = async (mode) => {
   }
   const email = mode === 'signup' ? DOM.signupEmail?.value : DOM.signinEmail?.value;
   const password = mode === 'signup' ? DOM.signupPassword?.value : DOM.signinPassword?.value;
+  const first = DOM.signupFirst?.value?.trim();
+  const last = DOM.signupLast?.value?.trim();
+  const year = DOM.signupYear?.value || '';
   if (!email || !password) return;
+  if (mode === 'signup' && (!first || !last || !year)) {
+    setAuthUI('First name, last name, and year are required.');
+    return;
+  }
   const client = supabaseClient();
   if (!client) {
     setAuthUI('Supabase client not ready.');
@@ -242,7 +252,7 @@ const auth = async (mode) => {
   }
   const payload =
     mode === 'signup'
-      ? { email, password, options: { emailRedirectTo } }
+      ? { email, password, options: { emailRedirectTo, data: { first_name: first, last_name: last, year } } }
       : { email, password };
   try {
     const { data, error } =
