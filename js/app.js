@@ -39,6 +39,7 @@ const DOM = {
   btnFinishQuiz: document.getElementById('btn-finish-quiz'),
   toggleTimed: document.getElementById('toggle-timed'),
   timerDisplay: document.getElementById('timer-display'),
+  btnResetStats: document.getElementById('btn-reset-stats'),
 };
 
 const state = {
@@ -555,6 +556,12 @@ const init = async () => {
     resetTimer();
     persistPractice();
     renderPractice();
+  });
+  DOM.btnResetStats?.addEventListener('click', () => {
+    state.stats = { accuracy: 0, answered: 0, time: 0 };
+    refreshStats();
+    persistPractice();
+    setDashStatus('Stats reset locally. (Supabase stats are unchanged)');
   });
   await checkSession();
   setAuthUI('');
