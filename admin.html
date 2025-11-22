@@ -78,11 +78,11 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="overline">Questions</p>
-            <p class="card-title">Add / edit up to 6 answers</p>
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="overline">Questions</p>
+              <p class="card-title">Add / edit up to 6 answers</p>
           </div>
           <button class="primary small" id="btn-new-question">New question</button>
         </div>
@@ -123,6 +123,24 @@
             <button class="ghost" id="btn-reset-question">Reset</button>
           </div>
           <p class="hint" id="question-status"></p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="overline">Import</p>
+              <p class="card-title">Upload exam JSON</p>
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="import-file">Exam file (.json or .txt)</label>
+            <input id="import-file" type="file" accept=".json,.txt" />
+          </div>
+          <div class="actions">
+            <button class="primary" id="btn-import">Import exam</button>
+            <a class="ghost" href="sample-exam.json" download>Download sample</a>
+          </div>
+          <p class="hint" id="import-status">Format: see sample-exam.json (bank + questions array with up to 6 answers).</p>
         </div>
 
         <div class="question-list" id="question-list"></div>
