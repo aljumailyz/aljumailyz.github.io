@@ -1,8 +1,10 @@
 import { supabaseAvailable, supabaseClient } from './supabase.js';
 
 const DOM = {
-  email: document.getElementById('email'),
-  password: document.getElementById('password'),
+  signinEmail: document.getElementById('signin-email'),
+  signinPassword: document.getElementById('signin-password'),
+  signupEmail: document.getElementById('signup-email'),
+  signupPassword: document.getElementById('signup-password'),
   btnSignin: document.getElementById('btn-signin'),
   btnSignup: document.getElementById('btn-signup'),
   btnSignout: document.getElementById('btn-signout'),
@@ -190,8 +192,8 @@ const auth = async (mode) => {
     setAuthUI('Supabase keys missing.');
     return;
   }
-  const email = DOM.email.value;
-  const password = DOM.password.value;
+  const email = mode === 'signup' ? DOM.signupEmail?.value : DOM.signinEmail?.value;
+  const password = mode === 'signup' ? DOM.signupPassword?.value : DOM.signinPassword?.value;
   if (!email || !password) return;
   const client = supabaseClient();
   if (!client) {
