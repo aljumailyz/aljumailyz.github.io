@@ -879,6 +879,31 @@ button.full {
   background: #ffffff;
 }
 
+.auth-stack {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.mini-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 12px;
+  background: #f9fbff;
+  box-shadow: 0 6px 16px rgba(15, 28, 48, 0.08);
+}
+[data-theme='dark'] .mini-card {
+  background: #0f1a2d;
+  border-color: #2c3f5e;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.card-subtitle {
+  margin: 0 0 8px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+}
+
 .input-group {
   display: flex;
   flex-direction: column;
@@ -1134,6 +1159,24 @@ textarea {
 .toast.error {
   border-color: #d73d4a;
   background: #fdebed;
+}
+
+.site-footer {
+  margin: 18px 0 0;
+  padding: 12px 0 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.site-footer a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.site-footer a:hover {
+  text-decoration: underline;
 }
 
 @keyframes fade-in {
