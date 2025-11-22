@@ -15,12 +15,16 @@ const DOM = {
   bankSelect: document.getElementById('bank-select'),
   bankHint: document.getElementById('bank-hint'),
   btnStart: document.getElementById('btn-start'),
+  btnProfile: document.getElementById('btn-profile'),
+  btnSignoutDash: document.getElementById('btn-signout-dash'),
   statAccuracy: document.getElementById('stat-accuracy'),
   statAnswered: document.getElementById('stat-answered'),
   statTime: document.getElementById('stat-time'),
   progressAccuracy: document.getElementById('progress-accuracy'),
   progressAnswered: document.getElementById('progress-answered'),
   progressTime: document.getElementById('progress-time'),
+  loadingOverlay: document.getElementById('loading-overlay'),
+  loadingText: document.getElementById('loading-text'),
 };
 
 const state = {
@@ -49,14 +53,25 @@ const setDashStatus = (message = '') => {
   if (DOM.dashStatus) DOM.dashStatus.textContent = message;
 };
 
+const showLoading = (message = 'Loading…') => {
+  if (DOM.loadingText) DOM.loadingText.textContent = message;
+  DOM.loadingOverlay?.classList.remove('hidden');
+};
+
+const hideLoading = () => {
+  DOM.loadingOverlay?.classList.add('hidden');
+};
+
 const loadBanks = async () => {
   state.banksLoading = true;
   setDashStatus('Loading banks…');
+  showLoading('Loading banks…');
   if (!supabaseAvailable()) {
     stateBanks.banks = sampleBanks;
     renderBanks();
     state.banksLoading = false;
     setDashStatus('');
+    hideLoading();
     return;
   }
   const client = supabaseClient();
@@ -65,6 +80,7 @@ const loadBanks = async () => {
     renderBanks();
     state.banksLoading = false;
     setDashStatus('');
+    hideLoading();
     return;
   }
   const { data, error } = await client.from('banks').select('id, name').order('created_at', { ascending: false });
@@ -76,6 +92,7 @@ const loadBanks = async () => {
   renderBanks();
   state.banksLoading = false;
   setDashStatus('');
+  hideLoading();
 };
 
 const renderBanks = () => {
@@ -185,6 +202,8 @@ const handleStartPractice = () => {
   const bank = stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id);
   if (DOM.bankHint) DOM.bankHint.textContent = `Launching ${bank?.name || 'bank'}…`;
   if (DOM.dashStatus) DOM.dashStatus.textContent = `Practice session ready for ${bank?.name || 'selected bank'}.`;
+  showLoading('Loading questions…');
+  setTimeout(() => hideLoading(), 1200);
   // Hook: load the chosen bank's questions here.
 };
 
@@ -195,6 +214,8 @@ const init = async () => {
   DOM.btnSignin?.addEventListener('click', () => auth('signin'));
   DOM.btnSignup?.addEventListener('click', () => auth('signup'));
   DOM.btnSignout?.addEventListener('click', signOut);
+  DOM.btnSignoutDash?.addEventListener('click', signOut);
+  DOM.btnProfile?.addEventListener('click', () => setDashStatus('Profile coming soon.'));
   DOM.btnStart?.addEventListener('click', handleStartPractice);
   await checkSession();
   setAuthUI('');
