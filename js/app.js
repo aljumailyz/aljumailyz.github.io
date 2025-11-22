@@ -34,13 +34,15 @@ const auth = async (mode) => {
     setAuthUI('Supabase client not ready.');
     return;
   }
-  const action = mode === 'signup' ? client.auth.signUp : client.auth.signInWithPassword;
   const payload =
     mode === 'signup'
       ? { email, password, options: { emailRedirectTo } }
       : { email, password };
   try {
-    const { data, error } = await action(payload);
+    const { data, error } =
+      mode === 'signup'
+        ? await client.auth.signUp(payload)
+        : await client.auth.signInWithPassword(payload);
     if (error) {
       setAuthUI(error.message);
     } else {
