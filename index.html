@@ -103,18 +103,15 @@
             </div>
           </div>
           <div class="bank-list">
-            <label class="input-group">
-              <span>Year</span>
-              <select id="year-filter">
-                <option value="all">All years</option>
-                <option value="Year 1">Year 1</option>
-                <option value="Year 2">Year 2</option>
-                <option value="Year 3">Year 3</option>
-                <option value="Year 4">Year 4</option>
-                <option value="Year 5">Year 5</option>
-                <option value="Year 6">Year 6</option>
-              </select>
-            </label>
+            <div class="year-pills" id="year-pills-filter">
+              <span class="pill clickable active" data-year="all">All years</span>
+              <span class="pill clickable" data-year="Year 1">Year 1</span>
+              <span class="pill clickable" data-year="Year 2">Year 2</span>
+              <span class="pill clickable" data-year="Year 3">Year 3</span>
+              <span class="pill clickable" data-year="Year 4">Year 4</span>
+              <span class="pill clickable" data-year="Year 5">Year 5</span>
+              <span class="pill clickable" data-year="Year 6">Year 6</span>
+            </div>
             <label class="input-group">
               <span>Bank</span>
               <select id="bank-select"></select>
