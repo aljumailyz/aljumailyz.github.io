@@ -18,6 +18,7 @@ const DOM = {
     topic: document.getElementById('question-topic'),
     stem: document.getElementById('question-stem'),
     image: document.getElementById('question-image'),
+    answerCount: document.getElementById('answer-count'),
     answerEditor: document.getElementById('answer-editor'),
     btnSave: document.getElementById('btn-save-question'),
     btnReset: document.getElementById('btn-reset-question'),
@@ -221,6 +222,19 @@ const addAnswer = () => {
     return;
   }
   state.answers.push({ text: '', explanation: '', isCorrect: state.answers.length === 0 });
+  setAnswerCount(state.answers.length);
+};
+
+const setAnswerCount = (count) => {
+  const target = Math.min(Math.max(count, 1), 6);
+  const current = state.answers.length;
+  if (target > current) {
+    for (let i = current; i < target; i += 1) state.answers.push({ text: '', explanation: '', isCorrect: false });
+  } else if (target < current) {
+    state.answers = state.answers.slice(0, target);
+  }
+  if (!state.answers.some((a) => a.isCorrect) && state.answers[0]) state.answers[0].isCorrect = true;
+  if (DOM.questionForm.answerCount) DOM.questionForm.answerCount.value = String(target);
   renderAnswers();
 };
 
@@ -245,7 +259,7 @@ const resetQuestionForm = () => {
   if (DOM.questionForm.stem) DOM.questionForm.stem.value = '';
   if (DOM.questionForm.image) DOM.questionForm.image.value = '';
   state.answers = [{ text: '', explanation: '', isCorrect: true }];
-  renderAnswers();
+  setAnswerCount(Number(DOM.questionForm.answerCount?.value || 4));
   state.editingQuestionId = null;
   setQuestionStatus('');
 };
@@ -410,7 +424,7 @@ const handleListClick = async (event) => {
     if (DOM.questionForm.stem) DOM.questionForm.stem.value = q.stem;
     if (DOM.questionForm.image) DOM.questionForm.image.value = q.imageUrl || '';
     state.answers = q.answers.map((a) => ({ ...a }));
-    renderAnswers();
+    setAnswerCount(state.answers.length || 1);
   }
 };
 
@@ -443,6 +457,7 @@ const init = async () => {
   // Answer editor
   DOM.questionForm.answerEditor?.addEventListener('click', handleListClick);
   DOM.questionForm.answerEditor?.addEventListener('input', handleAnswerInput);
+  DOM.questionForm.answerCount?.addEventListener('change', (e) => setAnswerCount(Number(e.target.value)));
 
   // Question actions
   DOM.questionForm.btnSave?.addEventListener('click', saveQuestion);
