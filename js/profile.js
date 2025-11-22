@@ -13,6 +13,7 @@ const DOM = {
   emailDisplay: document.getElementById('profile-email'),
   yearBadge: document.getElementById('profile-year-badge'),
   toastStack: document.getElementById('toast-stack'),
+  yearPills: document.getElementById('year-pills'),
 };
 
 const state = { user: null };
@@ -40,6 +41,11 @@ const hydrate = () => {
   if (DOM.last) DOM.last.value = meta.last_name || '';
   if (DOM.year) DOM.year.value = meta.year || '';
   if (DOM.password) DOM.password.value = '';
+  if (DOM.yearPills) {
+    [...DOM.yearPills.querySelectorAll('.pill')].forEach((pill) => {
+      pill.classList.toggle('active', pill.dataset.year === (meta.year || ''));
+    });
+  }
 };
 
 const loadSession = async () => {
@@ -101,11 +107,21 @@ const signOut = async () => {
   window.location.href = 'index.html';
 };
 
+const handleYearPillClick = (event) => {
+  const target = event.target.closest('.pill');
+  if (!target || !target.dataset.year) return;
+  if (DOM.year) DOM.year.value = target.dataset.year;
+  [...DOM.yearPills.querySelectorAll('.pill')].forEach((pill) => {
+    pill.classList.toggle('active', pill === target);
+  });
+};
+
 const init = async () => {
   await loadSession();
   DOM.btnSave?.addEventListener('click', saveProfile);
   DOM.btnChangePassword?.addEventListener('click', changePassword);
   DOM.btnSignout?.addEventListener('click', signOut);
+  DOM.yearPills?.addEventListener('click', handleYearPillClick);
 };
 
 document.addEventListener('DOMContentLoaded', init);
