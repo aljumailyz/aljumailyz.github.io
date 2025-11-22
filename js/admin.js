@@ -135,10 +135,17 @@ const refreshData = async () => {
   await loadUsers();
 };
 
-const saveBank = async (name, description = '') => {
+const normalizeYear = (yr) => {
+  if (!yr) return '';
+  const m = `${yr}`.match(/(\d)/);
+  if (m) return `Year ${m[1]}`;
+  return yr;
+};
+
+const saveBank = async (name, year = '', description = '') => {
   const client = getClient();
   if (!client) return;
-  const { error } = await client.from('banks').insert({ name, description });
+  const { error } = await client.from('banks').insert({ name, year: normalizeYear(year), description });
   if (error) {
     setDashStatus(`Save bank failed: ${error.message}`);
     return;
@@ -178,7 +185,7 @@ const renderBanks = () => {
         <div class="list-item">
           <div class="list-meta">
             <strong>${b.name}</strong>
-            <span class="muted">${b.count} questions</span>
+            <span class="muted">${b.count} questions ${b.year ? `• ${b.year}` : ''}</span>
           </div>
           <div class="list-actions">
             <button class="ghost small" data-bank="${b.id}" data-action="edit-bank">Edit</button>
@@ -191,7 +198,7 @@ const renderBanks = () => {
   }
   if (DOM.bankSelect) {
     const opts = ['<option value="">Select bank…</option>']
-      .concat(state.banks.map((b) => `<option value="${b.id}">${b.name}</option>`))
+      .concat(state.banks.map((b) => `<option value="${b.id}">${b.name}${b.year ? ` • ${b.year}` : ''}</option>`))
       .join('');
     DOM.bankSelect.innerHTML = opts;
   }
@@ -521,7 +528,8 @@ const handleAnswerInput = (event) => {
 const handleNewBank = async () => {
   const name = prompt('Bank name');
   if (!name) return;
-  await saveBank(name);
+  const year = prompt('Year (e.g., Year 1 - Year 6)');
+  await saveBank(name, year || '');
 };
 
 const init = async () => {
