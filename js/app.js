@@ -76,8 +76,26 @@ const stateBanks = {
   banks: [],
 };
 
+const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
+
 const setDashStatus = (message = '') => {
   if (DOM.dashStatus) DOM.dashStatus.textContent = message;
+};
+
+const enforceAccess = () => {
+  const email = state.user?.email?.toLowerCase() || '';
+  const hasAccess = email && paidUsers.includes(email);
+  const message = hasAccess ? '' : 'Please contact Zaid to enable access.';
+  setDashStatus(message);
+  if (!hasAccess) {
+    DOM.btnStart?.setAttribute('disabled', 'disabled');
+    DOM.bankSelect?.setAttribute('disabled', 'disabled');
+    DOM.practice?.classList.add('hidden');
+  } else {
+    DOM.btnStart?.removeAttribute('disabled');
+    DOM.bankSelect?.removeAttribute('disabled');
+  }
+  return hasAccess;
 };
 
 const showLoading = (message = 'Loading…') => {
@@ -146,6 +164,7 @@ const setAuthUI = (message = '') => {
     if (DOM.dashGreeting) DOM.dashGreeting.textContent = `Welcome, ${state.user.email}`;
     if (DOM.dashSession) DOM.dashSession.textContent = 'Signed in';
   }
+  if (signedIn) enforceAccess();
 };
 
 const auth = async (mode) => {
@@ -175,6 +194,7 @@ const auth = async (mode) => {
     } else {
       state.user = data.user || data.session?.user || null;
       setAuthUI(mode === 'signup' ? 'Check your email to confirm.' : 'Signed in.');
+      enforceAccess();
     }
   } catch (err) {
     console.error('Auth error', err);
@@ -198,11 +218,13 @@ const checkSession = async () => {
     state.user = data.session.user;
     setAuthUI('');
     await loadStats();
+    enforceAccess();
   }
   client.auth.onAuthStateChange((_event, session) => {
     state.user = session?.user ?? null;
     setAuthUI('');
     loadStats();
+    if (session?.user) enforceAccess();
   });
 };
 
@@ -236,6 +258,7 @@ const refreshStats = () => {
 };
 
 const handleStartPractice = () => {
+  if (!enforceAccess()) return;
   const id = DOM.bankSelect?.value;
   if (!id) {
     if (DOM.bankHint) DOM.bankHint.textContent = 'Pick a bank to continue.';
