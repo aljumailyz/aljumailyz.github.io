@@ -17,6 +17,7 @@ const DOM = {
   btnStart: document.getElementById('btn-start'),
   btnProfile: document.getElementById('btn-profile'),
   btnSignoutDash: document.getElementById('btn-signout-dash'),
+  selectTimed: document.getElementById('select-timed'),
   statAccuracy: document.getElementById('stat-accuracy'),
   statAnswered: document.getElementById('stat-answered'),
   statTime: document.getElementById('stat-time'),
@@ -264,6 +265,7 @@ const handleStartPractice = () => {
     if (DOM.bankHint) DOM.bankHint.textContent = 'Pick a bank to continue.';
     return;
   }
+  const timedSelection = Boolean(DOM.selectTimed?.checked);
   if (state.banksLoading) {
     if (DOM.bankHint) DOM.bankHint.textContent = 'Still loading banks… try again in a moment.';
     return;
@@ -271,7 +273,7 @@ const handleStartPractice = () => {
   const bank = stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id);
   if (DOM.bankHint) DOM.bankHint.textContent = `Launching ${bank?.name || 'bank'}…`;
   if (DOM.dashStatus) DOM.dashStatus.textContent = `Practice session ready for ${bank?.name || 'selected bank'}.`;
-  loadPracticeQuestions(id, bank?.name || 'Selected bank');
+  loadPracticeQuestions(id, bank?.name || 'Selected bank', timedSelection);
 };
 
 const renderPractice = () => {
@@ -334,7 +336,7 @@ const renderPractice = () => {
   }
 };
 
-const loadPracticeQuestions = async (bankId, bankName) => {
+const loadPracticeQuestions = async (bankId, bankName, timedSelection = false) => {
   showLoading('Loading questions…');
   const client = supabaseAvailable() ? supabaseClient() : null;
   let questions = [];
@@ -373,7 +375,7 @@ const loadPracticeQuestions = async (bankId, bankName) => {
     questions,
     current: 0,
     submissions: questions.map(() => ({ selected: null, submitted: false, correct: null, questionId: null })),
-    timed: Boolean(DOM.toggleTimed?.checked),
+    timed: timedSelection,
     timer: { duration: 30, remaining: 30, handle: null },
     startedAt: Date.now(),
   };
