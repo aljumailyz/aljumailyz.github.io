@@ -80,7 +80,13 @@ const stateBanks = {
 const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
 
 const setDashStatus = (message = '') => {
-  if (DOM.dashStatus) DOM.dashStatus.textContent = message;
+  if (DOM.dashStatus) {
+    if (message) {
+      DOM.dashStatus.innerHTML = `<div class="access-warning"><span class="access-dot"></span><span>${message}</span></div>`;
+    } else {
+      DOM.dashStatus.textContent = '';
+    }
+  }
 };
 
 const enforceAccess = () => {
