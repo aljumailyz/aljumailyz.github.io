@@ -25,6 +25,15 @@ const DOM = {
   progressTime: document.getElementById('progress-time'),
   loadingOverlay: document.getElementById('loading-overlay'),
   loadingText: document.getElementById('loading-text'),
+  practice: document.getElementById('practice'),
+  practiceBank: document.getElementById('practice-bank'),
+  practiceProgress: document.getElementById('practice-progress'),
+  practiceStem: document.getElementById('practice-stem'),
+  practiceImage: document.getElementById('practice-image'),
+  practiceOptions: document.getElementById('practice-options'),
+  btnSubmitQuestion: document.getElementById('btn-submit-question'),
+  btnNextQuestion: document.getElementById('btn-next-question'),
+  practiceStatus: document.getElementById('practice-status'),
 };
 
 const state = {
@@ -35,6 +44,12 @@ const state = {
     time: 0,
   },
   banksLoading: false,
+  practice: {
+    bankName: '',
+    questions: [],
+    current: 0,
+    selected: null,
+  },
 };
 
 // Ensure Supabase email links return to the current domain (e.g., GitHub Pages).
@@ -202,9 +217,93 @@ const handleStartPractice = () => {
   const bank = stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id);
   if (DOM.bankHint) DOM.bankHint.textContent = `Launching ${bank?.name || 'bank'}…`;
   if (DOM.dashStatus) DOM.dashStatus.textContent = `Practice session ready for ${bank?.name || 'selected bank'}.`;
+  loadPracticeQuestions(id, bank?.name || 'Selected bank');
+};
+
+const renderPractice = () => {
+  const { questions, current, selected, bankName } = state.practice;
+  if (!DOM.practice) return;
+  DOM.practice.classList.toggle('hidden', !questions.length);
+  if (!questions.length) {
+    if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'No questions found for this bank.';
+    return;
+  }
+  const q = questions[current];
+  if (DOM.practiceBank) DOM.practiceBank.textContent = bankName;
+  if (DOM.practiceProgress) DOM.practiceProgress.textContent = `${current + 1} / ${questions.length}`;
+  if (DOM.practiceStem) DOM.practiceStem.textContent = q.stem;
+  if (DOM.practiceImage) {
+    if (q.imageUrl) {
+      DOM.practiceImage.src = q.imageUrl;
+      DOM.practiceImage.classList.remove('hidden');
+    } else {
+      DOM.practiceImage.classList.add('hidden');
+    }
+  }
+  if (DOM.practiceOptions) {
+    DOM.practiceOptions.innerHTML = q.answers
+      .map(
+        (a, idx) => `
+        <li class="option ${selected === idx ? 'selected' : ''}" data-idx="${idx}">
+          <div class="option-index">${String.fromCharCode(65 + idx)}</div>
+          <div class="option-content">
+            <div>${a.text}</div>
+            ${a.explanation ? `<p class="hint">${a.explanation}</p>` : ''}
+          </div>
+        </li>`,
+      )
+      .join('');
+  }
+  if (DOM.practiceStatus) DOM.practiceStatus.textContent = '';
+};
+
+const loadPracticeQuestions = async (bankId, bankName) => {
   showLoading('Loading questions…');
-  setTimeout(() => hideLoading(), 1200);
-  // Hook: load the chosen bank's questions here.
+  const client = supabaseAvailable() ? supabaseClient() : null;
+  let questions = [];
+  if (client) {
+    const { data, error } = await client
+      .from('questions')
+      .select('stem, image_url, answers')
+      .eq('bank_id', bankId)
+      .order('created_at', { ascending: false });
+    if (!error && data?.length) {
+      questions = data.map((q) => ({
+        stem: q.stem,
+        imageUrl: q.image_url,
+        answers: q.answers || [],
+      }));
+    }
+  }
+  state.practice = { bankName, questions, current: 0, selected: null };
+  hideLoading();
+  renderPractice();
+};
+
+const handleOptionClick = (event) => {
+  const li = event.target.closest('.option');
+  if (!li || !DOM.practiceOptions?.contains(li)) return;
+  state.practice.selected = Number(li.dataset.idx);
+  renderPractice();
+};
+
+const handleSubmitQuestion = () => {
+  const { questions, current, selected } = state.practice;
+  if (!questions.length || selected === null) {
+    if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'Select an answer first.';
+    return;
+  }
+  const q = questions[current];
+  const correctIdx = q.answers.findIndex((a) => a.isCorrect);
+  const isCorrect = selected === correctIdx;
+  if (DOM.practiceStatus) DOM.practiceStatus.textContent = isCorrect ? 'Correct!' : 'Incorrect. Review and try next.';
+};
+
+const handleNextQuestion = () => {
+  if (!state.practice.questions.length) return;
+  state.practice.current = (state.practice.current + 1) % state.practice.questions.length;
+  state.practice.selected = null;
+  renderPractice();
 };
 
 const init = async () => {
@@ -217,6 +316,9 @@ const init = async () => {
   DOM.btnSignoutDash?.addEventListener('click', signOut);
   DOM.btnProfile?.addEventListener('click', () => setDashStatus('Profile coming soon.'));
   DOM.btnStart?.addEventListener('click', handleStartPractice);
+  DOM.practiceOptions?.addEventListener('click', handleOptionClick);
+  DOM.btnSubmitQuestion?.addEventListener('click', handleSubmitQuestion);
+  DOM.btnNextQuestion?.addEventListener('click', handleNextQuestion);
   await checkSession();
   setAuthUI('');
 };
