@@ -624,7 +624,6 @@ button.full {
 
 .option.selected {
   border-color: var(--primary);
-  background: #e8f1ff;
 }
 
 .option.correct {
@@ -637,6 +636,9 @@ button.full {
   background: #fdebed;
 }
 
+[data-theme='dark'] .option.selected {
+  border-color: var(--primary);
+}
 [data-theme='dark'] .option.correct {
   background: rgba(43, 166, 108, 0.28);
   border-color: #2ba66c;
@@ -644,6 +646,15 @@ button.full {
 [data-theme='dark'] .option.incorrect {
   background: rgba(215, 61, 74, 0.24);
   border-color: #d73d4a;
+}
+
+.option.selected:not(.correct):not(.incorrect) {
+  background: transparent;
+}
+.option.selected:not(.correct):not(.incorrect) .option-index {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
 }
 
 .option-index {
@@ -654,6 +665,7 @@ button.full {
   display: grid;
   place-items: center;
   font-weight: 700;
+  background: #ffffff;
 }
 
 .option-content {
