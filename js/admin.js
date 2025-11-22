@@ -31,16 +31,135 @@ const DOM = {
 
 const state = {
   user: null,
-  banks: [
-    { id: 'med', name: 'Medicine – Core Review', count: 120 },
-    { id: 'step', name: 'Step-style Practice', count: 80 },
-  ],
+  banks: [],
   questions: [],
   answers: [],
-  users: [
-    { email: 'learner1@example.com', accuracy: 72, answered: 54, time: 88 },
-    { email: 'learner2@example.com', accuracy: 64, answered: 33, time: 44 },
-  ],
+  editingQuestionId: null,
+  users: [],
+};
+
+const setDashStatus = (message = '') => {
+  if (DOM.dashStatus) DOM.dashStatus.textContent = message;
+};
+
+const setQuestionStatus = (message = '') => {
+  if (DOM.questionForm.status) DOM.questionForm.status.textContent = message;
+};
+
+const getClient = () => {
+  if (!supabaseAvailable()) {
+    setDashStatus('Supabase keys missing.');
+    return null;
+  }
+  return supabaseClient();
+};
+
+const updateBankCounts = () => {
+  if (!state.banks.length) return;
+  const counts = state.questions.reduce((acc, q) => {
+    acc[q.bankId] = (acc[q.bankId] || 0) + 1;
+    return acc;
+  }, {});
+  state.banks = state.banks.map((b) => ({ ...b, count: counts[b.id] || 0 }));
+};
+
+const loadBanks = async () => {
+  const client = getClient();
+  if (!client) return;
+  const { data, error } = await client.from('banks').select('*').order('created_at', { ascending: false });
+  if (error) {
+    setDashStatus(`Banks error: ${error.message}`);
+    return;
+  }
+  state.banks = data || [];
+  updateBankCounts();
+  renderBanks();
+};
+
+const loadQuestions = async () => {
+  const client = getClient();
+  if (!client) return;
+  const { data, error } = await client
+    .from('questions')
+    .select('id, bank_id, topic, stem, image_url, answers')
+    .order('created_at', { ascending: false });
+  if (error) {
+    setDashStatus(`Questions error: ${error.message}`);
+    return;
+  }
+  state.questions =
+    data?.map((q) => ({
+      id: q.id,
+      bankId: q.bank_id,
+      topic: q.topic,
+      stem: q.stem,
+      imageUrl: q.image_url,
+      answers: q.answers || [],
+    })) || [];
+  updateBankCounts();
+  renderBanks();
+  renderQuestions();
+};
+
+const loadUsers = async () => {
+  const client = getClient();
+  if (!client) return;
+  const { data, error } = await client.from('user_stats').select('user_id, accuracy, answered, time');
+  if (error) {
+    setDashStatus('User stats view missing or restricted. Create `user_stats` view.');
+    return;
+  }
+  state.users =
+    data?.map((u) => ({
+      email: u.user_id,
+      accuracy: Math.round(u.accuracy || 0),
+      answered: u.answered || 0,
+      time: u.time || 0,
+    })) || [];
+  renderUsers();
+};
+
+const refreshData = async () => {
+  if (!state.user) return;
+  setDashStatus('');
+  await loadBanks();
+  await loadQuestions();
+  await loadUsers();
+};
+
+const saveBank = async (name, description = '') => {
+  const client = getClient();
+  if (!client) return;
+  const { error } = await client.from('banks').insert({ name, description });
+  if (error) {
+    setDashStatus(`Save bank failed: ${error.message}`);
+    return;
+  }
+  setDashStatus('Bank saved.');
+  await loadBanks();
+};
+
+const deleteBank = async (id) => {
+  const client = getClient();
+  if (!client) return;
+  const { error } = await client.from('banks').delete().eq('id', id);
+  if (error) {
+    setDashStatus(`Delete bank failed: ${error.message}`);
+    return;
+  }
+  await loadBanks();
+  await loadQuestions();
+};
+
+const deleteQuestion = async (id) => {
+  const client = getClient();
+  if (!client) return;
+  const { error } = await client.from('questions').delete().eq('id', id);
+  if (error) {
+    setDashStatus(`Delete question failed: ${error.message}`);
+    return;
+  }
+  await loadQuestions();
 };
 
 const renderBanks = () => {
@@ -127,24 +246,34 @@ const resetQuestionForm = () => {
   if (DOM.questionForm.image) DOM.questionForm.image.value = '';
   state.answers = [{ text: '', explanation: '', isCorrect: true }];
   renderAnswers();
-  if (DOM.questionForm.status) DOM.questionForm.status.textContent = '';
+  state.editingQuestionId = null;
+  setQuestionStatus('');
 };
 
-const saveQuestion = () => {
+const saveQuestion = async () => {
   if (!DOM.questionForm.bank?.value || !DOM.questionForm.stem?.value) {
-    if (DOM.questionForm.status) DOM.questionForm.status.textContent = 'Bank and stem are required.';
+    setQuestionStatus('Bank and stem are required.');
     return;
   }
+  const client = getClient();
+  if (!client) return;
   const payload = {
-    bankId: DOM.questionForm.bank.value,
+    bank_id: DOM.questionForm.bank.value,
     topic: DOM.questionForm.topic.value,
     stem: DOM.questionForm.stem.value,
-    imageUrl: DOM.questionForm.image.value,
+    image_url: DOM.questionForm.image.value,
     answers: state.answers,
   };
-  state.questions.unshift({ id: crypto.randomUUID(), ...payload });
-  renderQuestions();
-  if (DOM.questionForm.status) DOM.questionForm.status.textContent = 'Saved (local only). Wire Supabase insert to persist.';
+  if (state.editingQuestionId) payload.id = state.editingQuestionId;
+  const { error } = await client.from('questions').upsert(payload);
+  if (error) {
+    setQuestionStatus(`Save failed: ${error.message}`);
+    return;
+  }
+  setQuestionStatus('Saved to Supabase.');
+  state.editingQuestionId = null;
+  resetQuestionForm();
+  await loadQuestions();
 };
 
 const renderQuestions = () => {
@@ -227,6 +356,7 @@ const signIn = async () => {
   else {
     state.user = data.user || data.session?.user || null;
     setAuthUI('');
+    await refreshData();
   }
 };
 
@@ -235,6 +365,7 @@ const signOut = async () => {
   await supabaseClient().auth.signOut();
   state.user = null;
   setAuthUI('Signed out.');
+  setDashStatus('');
 };
 
 const initAuth = async () => {
@@ -245,19 +376,20 @@ const initAuth = async () => {
   client.auth.onAuthStateChange((_e, session) => {
     state.user = session?.user ?? null;
     setAuthUI('');
+    refreshData();
   });
   setAuthUI('');
+  await refreshData();
 };
 
-const handleListClick = (event) => {
+const handleListClick = async (event) => {
   const action = event.target.dataset.action;
   if (!action) return;
   if (action === 'remove-answer') removeAnswer(Number(event.target.dataset.idx));
   if (action === 'mark-correct') markCorrect(Number(event.target.dataset.idx));
   if (action === 'delete-bank') {
     const id = event.target.dataset.bank;
-    state.banks = state.banks.filter((b) => b.id !== id);
-    renderBanks();
+    await deleteBank(id);
   }
   if (action === 'edit-bank') {
     const id = event.target.dataset.bank;
@@ -266,13 +398,13 @@ const handleListClick = (event) => {
   }
   if (action === 'delete-question') {
     const id = event.target.dataset.id;
-    state.questions = state.questions.filter((q) => q.id !== id);
-    renderQuestions();
+    await deleteQuestion(id);
   }
   if (action === 'edit-question') {
     const id = event.target.dataset.id;
     const q = state.questions.find((x) => x.id === id);
     if (!q) return;
+    state.editingQuestionId = id;
     if (DOM.questionForm.bank) DOM.questionForm.bank.value = q.bankId;
     if (DOM.questionForm.topic) DOM.questionForm.topic.value = q.topic;
     if (DOM.questionForm.stem) DOM.questionForm.stem.value = q.stem;
@@ -290,12 +422,10 @@ const handleAnswerInput = (event) => {
   if (action === 'answer-explanation') setAnswerField(idx, 'explanation', event.target.value);
 };
 
-const handleNewBank = () => {
+const handleNewBank = async () => {
   const name = prompt('Bank name');
   if (!name) return;
-  const id = name.toLowerCase().replace(/\s+/g, '-');
-  state.banks.push({ id, name, count: 0 });
-  renderBanks();
+  await saveBank(name);
 };
 
 const init = async () => {
