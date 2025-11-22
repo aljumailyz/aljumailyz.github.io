@@ -159,6 +159,47 @@
           <p class="hint" id="dash-status">Signed in. Stats update after you start practicing.</p>
         </div>
       </div>
+
+      <div class="panel" id="profile-panel">
+        <div class="panel-head">
+          <div>
+            <p class="overline">Profile</p>
+            <p class="card-title">Edit name, year, password</p>
+          </div>
+          <button class="ghost small" id="btn-profile">Save profile</button>
+        </div>
+        <div class="grid split">
+          <label class="input-group">
+            <span>First name</span>
+            <input id="profile-first" placeholder="First name">
+          </label>
+          <label class="input-group">
+            <span>Last name</span>
+            <input id="profile-last" placeholder="Last name">
+          </label>
+        </div>
+        <label class="input-group">
+          <span>Year of study</span>
+          <select id="profile-year">
+            <option value="">Select year</option>
+            <option value="Year 1">Year 1</option>
+            <option value="Year 2">Year 2</option>
+            <option value="Year 3">Year 3</option>
+            <option value="Year 4">Year 4</option>
+            <option value="Year 5">Year 5</option>
+            <option value="Year 6">Year 6</option>
+          </select>
+        </label>
+        <label class="input-group">
+          <span>New password (leave blank to keep)</span>
+          <input id="profile-password" type="password" placeholder="••••••••">
+        </label>
+        <div class="actions">
+          <button class="primary" id="btn-save-profile">Save profile</button>
+          <button class="ghost" id="btn-change-password">Change password</button>
+        </div>
+        <p class="hint" id="profile-status"></p>
+      </div>
     </section>
 
     <section class="panel hidden" id="practice">
