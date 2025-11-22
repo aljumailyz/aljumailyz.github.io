@@ -17,6 +17,7 @@ const DOM = {
   bankSelect: document.getElementById('bank-select'),
   bankHint: document.getElementById('bank-hint'),
   btnStart: document.getElementById('btn-start'),
+  yearFilter: document.getElementById('year-filter'),
   btnProfile: document.getElementById('btn-profile'),
   btnSignoutDash: document.getElementById('btn-signout-dash'),
   selectTimed: document.getElementById('select-timed'),
@@ -72,8 +73,9 @@ const state = {
 const emailRedirectTo = `${window.location.origin}${window.location.pathname}`;
 
 const sampleBanks = [
-  { id: 'sample-medicine', name: 'Medicine – Sample', questions: 20 },
-  { id: 'sample-step', name: 'Step-style Sample', questions: 12 },
+  { id: 'sample-year1', name: 'Year 1 – Foundations', questions: 20, year: 'Year 1' },
+  { id: 'sample-year2', name: 'Year 2 – Systems', questions: 18, year: 'Year 2' },
+  { id: 'sample-year3', name: 'Year 3 – Clinical', questions: 15, year: 'Year 3' },
 ];
 
 const stateBanks = {
@@ -166,7 +168,7 @@ const loadBanks = async () => {
     hideLoading();
     return;
   }
-  const { data, error } = await client.from('banks').select('id, name').order('created_at', { ascending: false });
+  const { data, error } = await client.from('banks').select('id, name, year').order('created_at', { ascending: false });
   if (error || !data?.length) {
     stateBanks.banks = sampleBanks;
   } else {
@@ -178,11 +180,31 @@ const loadBanks = async () => {
   hideLoading();
 };
 
+const getBankYear = (bank) => {
+  if (bank.year) return bank.year;
+  const name = bank.name?.toLowerCase() || '';
+  const match = name.match(/year\s*(\d)/);
+  if (match) return `Year ${match[1]}`;
+  return 'All';
+};
+
 const renderBanks = () => {
   if (!DOM.bankSelect) return;
   const banks = stateBanks.banks.length ? stateBanks.banks : sampleBanks;
+  const filter = DOM.yearFilter?.value || 'all';
+  const filtered = banks.filter((b) => {
+    const yr = getBankYear(b);
+    return filter === 'all' || yr === filter;
+  });
   const options = ['<option value="">Choose a bank…</option>']
-    .concat(banks.map((b) => `<option value="${b.id}">${b.name}${b.questions ? ` (${b.questions})` : ''}</option>`))
+    .concat(
+      filtered.map(
+        (b) =>
+          `<option value="${b.id}">${b.name}${
+            b.questions ? ` (${b.questions})` : ''
+          }${getBankYear(b) && getBankYear(b) !== 'All' ? ` • ${getBankYear(b)}` : ''}</option>`,
+      ),
+    )
     .join('');
   DOM.bankSelect.innerHTML = options;
 };
@@ -645,6 +667,7 @@ const init = async () => {
     persistPractice();
     renderPractice();
   });
+  DOM.yearFilter?.addEventListener('change', renderBanks);
   document.addEventListener('keydown', handleKeyNav);
   DOM.btnResetStats?.addEventListener('click', () => {
     state.stats = { accuracy: 0, answered: 0, time: 0 };
