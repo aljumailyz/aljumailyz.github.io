@@ -129,13 +129,26 @@ button.ghost {
 }
 
 [data-theme='dark'] button {
-  background: var(--panel);
-  color: var(--text);
-  border-color: var(--border);
+  background: #152138;
+  color: #e9f0ff;
+  border-color: #30456a;
 }
 
 [data-theme='dark'] button.primary {
   color: #ffffff;
+  background: linear-gradient(135deg, #58a6ff, #3b82f6);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme='dark'] button.ghost {
+  background: #1b2942;
+  border-color: #30456a;
+  color: #e9f0ff;
+}
+
+[data-theme='dark'] button:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 14px rgba(88, 166, 255, 0.28);
 }
 
 button.outline {
