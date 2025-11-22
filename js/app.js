@@ -183,7 +183,12 @@ const loadBanks = async () => {
   if (error || !data?.length) {
     stateBanks.banks = sampleBanks;
   } else {
-    stateBanks.banks = data.map((b) => ({ id: b.id, name: b.name, questions: b.questions || 0 }));
+    stateBanks.banks = data.map((b) => ({
+      id: b.id,
+      name: b.name,
+      year: b.year || '',
+      questions: b.questions || 0,
+    }));
   }
   renderBanks();
   state.banksLoading = false;
