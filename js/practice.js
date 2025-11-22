@@ -265,10 +265,19 @@ const handleNextQuestion = () => {
   renderPractice();
 };
 
+const handlePrevQuestion = () => {
+  const total = state.practice.questions.length;
+  if (!total) return;
+  state.practice.current = (state.practice.current - 1 + total) % total;
+  state.practice.startedAt = Date.now();
+  resetTimer();
+  renderPractice();
+};
+
 const handleNavClick = (event) => {
-  const idx = event.target.dataset.nav;
-  if (idx === undefined) return;
-  const target = Number(idx);
+  const targetEl = event.target.closest('[data-nav]');
+  if (!targetEl || !DOM.practiceNav?.contains(targetEl)) return;
+  const target = Number(targetEl.dataset.nav);
   if (Number.isNaN(target)) return;
   if (target < 0 || target >= state.practice.questions.length) return;
   state.practice.current = target;
@@ -334,25 +343,24 @@ const handleKeyNav = (event) => {
   if (!questions.length) return;
   const answers = questions[current]?.answers || [];
   const sub = submissions[current] || {};
-  if (sub.submitted) {
-    // Submitted questions are locked; only allow navigation.
-    if (event.key === ' ' || event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'Enter') {
-      event.preventDefault();
-      handleNextQuestion();
-    }
-    return;
-  }
   const maxIdx = answers.length - 1;
   if (maxIdx < 0) return;
 
   const move = (dir) => {
-    let next = sub.selected ?? 0;
-    if (dir === 'down' || dir === 'right') next = Math.min(maxIdx, next + 1);
-    if (dir === 'up' || dir === 'left') next = Math.max(0, next - 1);
-    const nextSubs = submissions.slice();
-    nextSubs[current] = { ...sub, selected: next, submitted: false, correct: null };
-    state.practice.submissions = nextSubs;
-    renderPractice();
+    // Only adjust selection if question isn't submitted yet.
+    if (!sub.submitted) {
+      let next = sub.selected ?? 0;
+      if (dir === 'down' || dir === 'right') next = Math.min(maxIdx, next + 1);
+      if (dir === 'up' || dir === 'left') next = Math.max(0, next - 1);
+      const nextSubs = submissions.slice();
+      nextSubs[current] = { ...sub, selected: next, submitted: false, correct: null };
+      state.practice.submissions = nextSubs;
+      renderPractice();
+    } else {
+      // If submitted, let arrow keys navigate between questions.
+      if (dir === 'down' || dir === 'right') handleNextQuestion();
+      if (dir === 'up' || dir === 'left') handlePrevQuestion();
+    }
   };
 
   switch (event.key) {
@@ -367,7 +375,7 @@ const handleKeyNav = (event) => {
       move('up');
       break;
     case 'Enter':
-      if (sub.selected !== null && sub.selected !== undefined) {
+      if (sub.selected !== null && sub.selected !== undefined && !sub.submitted) {
         event.preventDefault();
         handleSubmitQuestion();
       }
