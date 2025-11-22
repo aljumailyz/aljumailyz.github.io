@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ExamForge | UWorld-style prep</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script type="module" src="js/app.js" defer></script>
+</head>
+<body>
+  <div class="bg-accents"></div>
+  <main class="shell single">
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>Welcome to Zaid's exam site</h1>
+        <p class="lede">Sign in or create an account to access your question banks and start practicing.</p>
+      </div>
+      <div class="hero-card">
+        <div class="card-head">
+          <div>
+            <p class="overline">Account</p>
+            <p class="card-title">Sign in / Sign up</p>
+          </div>
+        </div>
+        <div class="auth-card">
+          <div class="input-group">
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="you@school.edu">
+          </div>
+          <div class="input-group">
+            <label for="password">Password</label>
+            <input id="password" type="password" placeholder="••••••••">
+          </div>
+          <div class="actions">
+            <button class="primary" id="btn-signin">Sign in</button>
+            <button class="ghost" id="btn-signup">Create account</button>
+          </div>
+          <button class="ghost full" id="btn-signout">Sign out</button>
+          <p class="hint" id="auth-status"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
