@@ -297,6 +297,112 @@ button.full {
   margin-bottom: 10px;
 }
 
+.dashboard {
+  display: grid;
+  gap: 16px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.list-item {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 12px;
+  background: #f9fbff;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.list-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.list-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.dash-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stat-card {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: #f9fbff;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 6px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.strong {
+  font-weight: 700;
+}
+
+.question-form {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: #ffffff;
+  display: grid;
+  gap: 12px;
+}
+
+.answer-row {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 10px;
+  background: #f9fbff;
+  display: grid;
+  gap: 8px;
+}
+
+.answer-row-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.answer-flag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.question-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.question-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 12px;
+  background: #ffffff;
+  display: grid;
+  gap: 6px;
+}
+
 .control-row {
   display: flex;
   gap: 10px;
@@ -558,7 +664,11 @@ textarea {
   display: none !important;
 }
 
-.bank-list,
+.bank-list {
+  display: grid;
+  gap: 12px;
+}
+
 .footer,
 .footer-links {
   display: none;
