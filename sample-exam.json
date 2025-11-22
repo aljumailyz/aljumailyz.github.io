@@ -1,0 +1,30 @@
+{
+  "description": "Template for importing an exam: define one bank object and an array of questions. Each question supports up to 6 answers; include a single isCorrect=true. Fields: bank.name (required), bank.description (optional), questions[].topic (optional), questions[].stem (required), questions[].imageUrl (optional), questions[].answers[].text (required), answers[].explanation (optional), answers[].isCorrect (boolean).",
+  "bank": {
+    "name": "Sample Medicine Bank",
+    "description": "Demo import bank for testing"
+  },
+  "questions": [
+    {
+      "topic": "Cardiology",
+      "stem": "What is the most likely diagnosis for a patient with chest pain relieved by nitroglycerin?",
+      "imageUrl": "https://example.com/image1.png",
+      "answers": [
+        { "text": "Stable angina", "explanation": "Typical exertional chest pain relieved by rest or nitro.", "isCorrect": true },
+        { "text": "Unstable angina", "explanation": "Pain usually occurs at rest and is progressive." },
+        { "text": "Prinzmetal angina", "explanation": "Vasospastic; often transient ST elevation." },
+        { "text": "NSTEMI", "explanation": "Would show elevated troponins." }
+      ]
+    },
+    {
+      "topic": "Pulmonology",
+      "stem": "Which therapy improves mortality in COPD patients with resting hypoxemia?",
+      "imageUrl": null,
+      "answers": [
+        { "text": "Long-term oxygen therapy", "explanation": "Shown to improve survival in chronic hypoxemia.", "isCorrect": true },
+        { "text": "Short-acting bronchodilators", "explanation": "Symptomatic only." },
+        { "text": "Inhaled corticosteroids", "explanation": "Reduce exacerbations but not mortality." }
+      ]
+    }
+  ]
+}

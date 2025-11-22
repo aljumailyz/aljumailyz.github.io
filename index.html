@@ -86,11 +86,18 @@
           <h2 class="card-title" id="dash-greeting">Welcome back</h2>
           <p class="lede">Choose a bank, see your stats, and jump into practice.</p>
         </div>
-        <div class="dash-actions">
-          <button class="ghost small" id="btn-profile">Profile</button>
-          <button class="ghost small" id="btn-signout-dash">Sign out</button>
-          <button class="ghost small" id="theme-toggle">Light / Dark</button>
-          <div class="pill tone-accent" id="dash-session">Signed in</div>
+        <div class="user-menu">
+          <button class="ghost small user-menu-toggle" id="user-menu-toggle">
+            <span class="avatar-pill" id="user-menu-initials">U</span>
+            <span id="user-menu-email" class="muted">Signed in</span>
+            <span class="chevron">▾</span>
+          </button>
+          <div class="user-menu-panel hidden" id="user-menu-panel">
+            <button class="ghost full" id="menu-profile">Profile</button>
+            <button class="ghost full" id="menu-theme">Light / Dark</button>
+            <button class="ghost full" id="menu-signout">Sign out</button>
+            <div class="pill tone-accent" id="dash-session">Signed in</div>
+          </div>
         </div>
       </div>
 

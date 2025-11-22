@@ -23,6 +23,13 @@ const DOM = {
   yearPillsFilter: document.getElementById('year-pills-filter'),
   btnProfile: document.getElementById('btn-profile'),
   btnSignoutDash: document.getElementById('btn-signout-dash'),
+  menuToggle: document.getElementById('user-menu-toggle'),
+  menuPanel: document.getElementById('user-menu-panel'),
+  menuProfile: document.getElementById('menu-profile'),
+  menuTheme: document.getElementById('menu-theme'),
+  menuSignout: document.getElementById('menu-signout'),
+  menuInitials: document.getElementById('user-menu-initials'),
+  menuEmail: document.getElementById('user-menu-email'),
   profilePanel: document.getElementById('profile-panel'),
   profileFirst: document.getElementById('profile-first'),
   profileLast: document.getElementById('profile-last'),
@@ -127,6 +134,23 @@ const enforceAccess = () => {
     DOM.bankSelect?.removeAttribute('disabled');
   }
   return hasAccess;
+};
+
+// Launch the dedicated practice page using saved selection.
+const startPracticeRedirect = () => {
+  if (!enforceAccess()) return;
+  const id = DOM.bankSelect?.value;
+  if (!id) {
+    if (DOM.bankHint) DOM.bankHint.textContent = 'Pick a bank to continue.';
+    return;
+  }
+  const timedSelection = Boolean(DOM.selectTimed?.checked);
+  const bank = stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id);
+  localStorage.setItem(
+    'examforge.nextPractice',
+    JSON.stringify({ bankId: id, bankName: bank?.name || 'Selected bank', timed: timedSelection }),
+  );
+  window.location.href = 'practice.html';
 };
 
 const showLoading = (message = 'Loading…') => {
@@ -241,6 +265,12 @@ const setAuthUI = (message = '') => {
   const signedIn = Boolean(state.user);
   DOM.hero?.classList.toggle('hidden', signedIn);
   DOM.dashboard?.classList.toggle('hidden', !signedIn);
+  if (DOM.menuEmail) DOM.menuEmail.textContent = state.user?.email || 'Signed out';
+  if (DOM.menuInitials) {
+    const meta = state.user?.user_metadata || {};
+    const base = meta.first_name?.[0] || state.user?.email?.[0] || 'U';
+    DOM.menuInitials.textContent = base.toUpperCase();
+  }
   if (signedIn) {
     if (DOM.dashGreeting) DOM.dashGreeting.textContent = `Welcome, ${state.user.email}`;
     if (DOM.dashSession) DOM.dashSession.textContent = 'Signed in';
@@ -391,7 +421,10 @@ const handleStartPractice = () => {
   const bank = stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id);
   if (DOM.bankHint) DOM.bankHint.textContent = `Launching ${bank?.name || 'bank'}…`;
   if (DOM.dashStatus) DOM.dashStatus.textContent = `Practice session ready for ${bank?.name || 'selected bank'}.`;
-  loadPracticeQuestions(id, bank?.name || 'Selected bank', timedSelection);
+  // Store selection and redirect to full-screen practice page
+  const nextPractice = { bankId: id, bankName: bank?.name || 'Selected bank', timed: timedSelection };
+  localStorage.setItem('examforge.nextPractice', JSON.stringify(nextPractice));
+  window.location.href = 'practice.html';
 };
 
 const renderPractice = () => {
@@ -754,7 +787,7 @@ const init = async () => {
   DOM.btnSignout?.addEventListener('click', signOut);
   DOM.btnSignoutDash?.addEventListener('click', signOut);
   DOM.btnProfile?.addEventListener('click', () => setDashStatus('Profile coming soon.'));
-  DOM.btnStart?.addEventListener('click', handleStartPractice);
+  DOM.btnStart?.addEventListener('click', startPracticeRedirect);
   DOM.practiceOptions?.addEventListener('click', handleOptionClick);
   DOM.btnSubmitQuestion?.addEventListener('click', handleSubmitQuestion);
   DOM.btnNextQuestion?.addEventListener('click', handleNextQuestion);
@@ -785,6 +818,18 @@ const init = async () => {
     [...DOM.yearPillsFilter.querySelectorAll('.pill')].forEach((p) => p.classList.remove('active'));
     pill.classList.add('active');
     renderBanks();
+  });
+  DOM.menuToggle?.addEventListener('click', () => DOM.menuPanel?.classList.toggle('hidden'));
+  DOM.menuProfile?.addEventListener('click', () => (window.location.href = 'profile.html'));
+  DOM.menuSignout?.addEventListener('click', signOut);
+  DOM.menuTheme?.addEventListener('click', () => {
+    const next = getTheme() === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+  });
+  document.addEventListener('click', (e) => {
+    if (!DOM.menuPanel || !DOM.menuToggle) return;
+    if (DOM.menuPanel.contains(e.target) || DOM.menuToggle.contains(e.target)) return;
+    DOM.menuPanel.classList.add('hidden');
   });
   await checkSession();
   setAuthUI('');
