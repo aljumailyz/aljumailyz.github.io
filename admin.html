@@ -63,6 +63,28 @@
             </div>
             <button class="primary small" id="btn-new-bank">New bank</button>
           </div>
+          <div class="bank-form">
+            <label class="input-group">
+              <span>Bank name</span>
+              <input id="bank-name" placeholder="Cardiology Block" />
+            </label>
+            <label class="input-group">
+              <span>Year</span>
+              <select id="bank-year">
+                <option value="">Unassigned</option>
+                <option value="Year 1">Year 1</option>
+                <option value="Year 2">Year 2</option>
+                <option value="Year 3">Year 3</option>
+                <option value="Year 4">Year 4</option>
+                <option value="Year 5">Year 5</option>
+                <option value="Year 6">Year 6</option>
+              </select>
+            </label>
+            <div class="actions">
+              <button class="primary" id="btn-save-bank">Save bank</button>
+              <button class="ghost" id="btn-reset-bank">Reset</button>
+            </div>
+          </div>
           <div class="bank-list" id="bank-list"></div>
         </div>
 
