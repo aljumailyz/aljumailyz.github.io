@@ -14,7 +14,7 @@
 <body>
   <div class="bg-accents"></div>
   <main class="shell single">
-    <section class="hero">
+    <section class="hero" id="hero">
       <div class="hero-copy">
         <h1>Welcome to Zaid's exam site</h1>
         <p class="lede">Sign in or create an account to access your question banks and start practicing.</p>
@@ -41,6 +41,66 @@
           </div>
           <button class="ghost full" id="btn-signout">Sign out</button>
           <p class="hint" id="auth-status"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="dashboard hidden" id="dashboard">
+      <div class="panel dash-hero">
+        <div>
+          <p class="overline">Dashboard</p>
+          <h2 class="card-title" id="dash-greeting">Welcome back</h2>
+          <p class="lede">Choose a bank, see your stats, and jump into practice.</p>
+        </div>
+        <div class="pill tone-accent" id="dash-session">Signed in</div>
+      </div>
+
+      <div class="grid split">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="overline">Question banks</p>
+              <p class="card-title">Pick a bank to practice</p>
+            </div>
+          </div>
+          <div class="bank-list">
+            <label class="input-group">
+              <span>Bank</span>
+              <select id="bank-select"></select>
+            </label>
+            <button class="primary full" id="btn-start">Start practice</button>
+            <p class="hint" id="bank-hint">Select a bank to begin.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="overline">Your stats</p>
+              <p class="card-title">Snapshot</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-row">
+              <p class="muted">Accuracy</p>
+              <p class="strong" id="stat-accuracy">—</p>
+            </div>
+            <div class="progress"><div id="progress-accuracy"></div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-row">
+              <p class="muted">Questions answered</p>
+              <p class="strong" id="stat-answered">—</p>
+            </div>
+            <div class="progress neutral"><div id="progress-answered"></div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-row">
+              <p class="muted">Time spent</p>
+              <p class="strong" id="stat-time">—</p>
+            </div>
+            <div class="progress accent"><div id="progress-time"></div></div>
+          </div>
+          <p class="hint" id="dash-status">Signed in. Stats update after you start practicing.</p>
         </div>
       </div>
     </section>
