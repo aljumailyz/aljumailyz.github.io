@@ -12,6 +12,10 @@ const DOM = {
   dashSession: document.getElementById('dash-session'),
   bankList: document.getElementById('bank-list'),
   bankSelect: document.getElementById('question-bank'),
+  bankNameInput: document.getElementById('bank-name'),
+  bankYearInput: document.getElementById('bank-year'),
+  btnSaveBank: document.getElementById('btn-save-bank'),
+  btnResetBank: document.getElementById('btn-reset-bank'),
   btnNewBank: document.getElementById('btn-new-bank'),
   questionForm: {
     bank: document.getElementById('question-bank'),
@@ -39,6 +43,7 @@ const state = {
   questions: [],
   answers: [],
   editingQuestionId: null,
+  editingBankId: null,
   users: [],
 };
 
@@ -142,16 +147,25 @@ const normalizeYear = (yr) => {
   return yr;
 };
 
-const saveBank = async (name, year = '', description = '') => {
+const resetBankForm = () => {
+  if (DOM.bankNameInput) DOM.bankNameInput.value = '';
+  if (DOM.bankYearInput) DOM.bankYearInput.value = '';
+  state.editingBankId = null;
+};
+
+const saveBank = async (name, year = '', description = '', id = null) => {
   const client = getClient();
   if (!client) return;
-  const { error } = await client.from('banks').insert({ name, year: normalizeYear(year), description });
+  const payload = { name, year: normalizeYear(year), description };
+  if (id) payload.id = id;
+  const { error } = await client.from('banks').upsert(payload);
   if (error) {
     setDashStatus(`Save bank failed: ${error.message}`);
     return;
   }
   setDashStatus('Bank saved.');
   await loadBanks();
+  resetBankForm();
 };
 
 const deleteBank = async (id) => {
@@ -497,7 +511,8 @@ const handleListClick = async (event) => {
   if (action === 'edit-bank') {
     const id = event.target.dataset.bank;
     const bank = state.banks.find((b) => b.id === id);
-    if (DOM.questionForm.bank) DOM.questionForm.bank.value = bank?.id || '';
+    handleBankEdit(bank);
+    setDashStatus('Editing bank — update name/year then Save.');
   }
   if (action === 'delete-question') {
     const id = event.target.dataset.id;
@@ -525,16 +540,33 @@ const handleAnswerInput = (event) => {
   if (action === 'answer-explanation') setAnswerField(idx, 'explanation', event.target.value);
 };
 
-const handleNewBank = async () => {
-  const name = prompt('Bank name');
-  if (!name) return;
-  const year = prompt('Year (e.g., Year 1 - Year 6)');
-  await saveBank(name, year || '');
+const handleBankEdit = (bank) => {
+  if (!bank) return;
+  state.editingBankId = bank.id;
+  if (DOM.bankNameInput) DOM.bankNameInput.value = bank.name || '';
+  if (DOM.bankYearInput) DOM.bankYearInput.value = bank.year || '';
+};
+
+const handleSaveBankClick = async () => {
+  const name = DOM.bankNameInput?.value?.trim();
+  const year = DOM.bankYearInput?.value || '';
+  if (!name) {
+    setDashStatus('Bank name is required.');
+    return;
+  }
+  await saveBank(name, year, '', state.editingBankId);
+};
+
+const handleNewBank = () => {
+  resetBankForm();
+  setDashStatus('New bank: fill name and year, then Save.');
+  DOM.bankNameInput?.focus();
 };
 
 const init = async () => {
   // Render base UI
   renderBanks();
+  resetBankForm();
   resetQuestionForm();
   renderUsers();
   renderQuestions();
@@ -559,6 +591,8 @@ const init = async () => {
   // Bank actions
   DOM.bankList?.addEventListener('click', handleListClick);
   DOM.btnNewBank?.addEventListener('click', handleNewBank);
+  DOM.btnSaveBank?.addEventListener('click', handleSaveBankClick);
+  DOM.btnResetBank?.addEventListener('click', resetBankForm);
 
   // User search
   DOM.userSearch?.addEventListener('input', renderUsers);
