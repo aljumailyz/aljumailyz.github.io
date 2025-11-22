@@ -23,6 +23,14 @@ const DOM = {
   yearFilter: document.getElementById('year-filter'),
   btnProfile: document.getElementById('btn-profile'),
   btnSignoutDash: document.getElementById('btn-signout-dash'),
+  profilePanel: document.getElementById('profile-panel'),
+  profileFirst: document.getElementById('profile-first'),
+  profileLast: document.getElementById('profile-last'),
+  profileYear: document.getElementById('profile-year'),
+  profilePassword: document.getElementById('profile-password'),
+  btnSaveProfile: document.getElementById('btn-save-profile'),
+  btnChangePassword: document.getElementById('btn-change-password'),
+  profileStatus: document.getElementById('profile-status'),
   selectTimed: document.getElementById('select-timed'),
   statAccuracy: document.getElementById('stat-accuracy'),
   statAnswered: document.getElementById('stat-answered'),
@@ -289,17 +297,33 @@ const checkSession = async () => {
     setAuthUI('');
     await loadStats();
     enforceAccess();
+    hydrateProfileForm();
   }
   client.auth.onAuthStateChange((_event, session) => {
     state.user = session?.user ?? null;
     setAuthUI('');
     loadStats();
-    if (session?.user) enforceAccess();
+    if (session?.user) {
+      enforceAccess();
+      hydrateProfileForm();
+    }
   });
 };
 
 const setProgress = (el, value) => {
   if (el) el.style.width = `${Math.min(Math.max(value, 0), 100)}%`;
+};
+
+const setProfileStatus = (message = '') => {
+  if (DOM.profileStatus) DOM.profileStatus.textContent = message;
+};
+
+const hydrateProfileForm = () => {
+  const meta = state.user?.user_metadata || {};
+  if (DOM.profileFirst) DOM.profileFirst.value = meta.first_name || '';
+  if (DOM.profileLast) DOM.profileLast.value = meta.last_name || '';
+  if (DOM.profileYear) DOM.profileYear.value = meta.year || '';
+  if (DOM.profilePassword) DOM.profilePassword.value = '';
 };
 
 const loadStats = async () => {
@@ -315,6 +339,7 @@ const loadStats = async () => {
   state.stats.answered = data.answered || 0;
   state.stats.time = data.time || 0;
   refreshStats();
+  hydrateProfileForm();
 };
 
 const refreshStats = () => {
@@ -582,6 +607,46 @@ const finishQuiz = () => {
   if (DOM.practiceStatus) DOM.practiceStatus.textContent = `Quiz submitted. Score: ${correctCount}/${total} (${accuracyPct}%).`;
 };
 
+const saveProfile = async () => {
+  if (!supabaseAvailable() || !state.user) return;
+  const client = supabaseClient();
+  const first = DOM.profileFirst?.value?.trim();
+  const last = DOM.profileLast?.value?.trim();
+  const year = DOM.profileYear?.value || '';
+  try {
+    const { error } = await client.auth.updateUser({
+      data: { first_name: first, last_name: last, year },
+    });
+    if (error) {
+      setProfileStatus(error.message);
+    } else {
+      setProfileStatus('Profile updated.');
+      // refresh local user metadata
+      const { data } = await client.auth.getSession();
+      if (data?.session?.user) state.user = data.session.user;
+    }
+  } catch (err) {
+    setProfileStatus('Could not update profile.');
+  }
+};
+
+const changePassword = async () => {
+  if (!supabaseAvailable() || !state.user) return;
+  const newPass = DOM.profilePassword?.value;
+  if (!newPass) {
+    setProfileStatus('Enter a new password.');
+    return;
+  }
+  const client = supabaseClient();
+  try {
+    const { error } = await client.auth.updateUser({ password: newPass });
+    if (error) setProfileStatus(error.message);
+    else setProfileStatus('Password updated.');
+  } catch (err) {
+    setProfileStatus('Could not update password.');
+  }
+};
+
 const persistPractice = (clear = false) => {
   const key = 'examforge.practice';
   if (clear) {
@@ -685,6 +750,8 @@ const init = async () => {
     persistPractice();
     setDashStatus('Stats reset locally. (Supabase stats are unchanged)');
   });
+  DOM.btnSaveProfile?.addEventListener('click', saveProfile);
+  DOM.btnChangePassword?.addEventListener('click', changePassword);
   await checkSession();
   setAuthUI('');
 };
