@@ -11,9 +11,24 @@
   --danger: #d73d4a;
   --radius: 12px;
   --r-sm: 10px;
+  --shadow: 0 16px 40px rgba(15, 28, 48, 0.1);
   font-family: 'Sora', system-ui, -apple-system, sans-serif;
   color: var(--text);
   background-color: var(--bg);
+}
+
+[data-theme='dark'] {
+  --bg: #0b1221;
+  --panel: #0f172a;
+  --card: #111a2f;
+  --border: #1f2a40;
+  --text: #e6ecf6;
+  --muted: #9bb0d0;
+  --primary: #58a6ff;
+  --primary-strong: #3b82f6;
+  --accent: #58a6ff;
+  --danger: #f87171;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
 }
 
 *,
@@ -27,13 +42,16 @@ body {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
 .bg-accents {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(31, 122, 224, 0.08), rgba(255, 255, 255, 0));
+  background: radial-gradient(120% 60% at 20% 20%, rgba(31, 122, 224, 0.12), transparent),
+    radial-gradient(80% 60% at 80% 10%, rgba(88, 166, 255, 0.12), transparent),
+    linear-gradient(180deg, rgba(31, 122, 224, 0.08), rgba(255, 255, 255, 0));
   z-index: 0;
 }
 
@@ -108,6 +126,16 @@ button.primary {
 
 button.ghost {
   background: #f5f8fc;
+}
+
+[data-theme='dark'] button {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+[data-theme='dark'] button.primary {
+  color: #ffffff;
 }
 
 button.outline {
@@ -286,7 +314,7 @@ button.full {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
-  box-shadow: 0 10px 24px rgba(15, 28, 48, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .panel-head {
@@ -404,7 +432,7 @@ button.full {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: 12px;
-  background: #ffffff;
+  background: var(--card);
   display: grid;
   gap: 6px;
 }
@@ -770,6 +798,42 @@ textarea {
 }
 
 .access-card {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  border: 1px solid #f4cccc;
+  box-shadow: 0 18px 44px rgba(15, 28, 48, 0.22);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.access-copy .card-title {
+  margin: 0;
+}
+
+.access-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e74c3c;
+  box-shadow: 0 0 0 8px rgba(231, 76, 60, 0.16);
+  flex-shrink: 0;
+}
+
+/* Access gate overlay */
+.access-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 28, 48, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 30;
+}
+
+.access-card {
   background: #ffffff;
   border-radius: var(--radius);
   padding: 16px 18px;
@@ -846,5 +910,12 @@ textarea {
   }
   .nav {
     flex-wrap: wrap;
+  }
+
+  .practice-layout {
+    grid-template-columns: 1fr;
+  }
+  .practice-nav {
+    grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
   }
 }
