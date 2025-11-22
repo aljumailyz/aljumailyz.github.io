@@ -423,6 +423,7 @@ button.full {
   padding: 10px;
   display: grid;
   gap: 8px;
+  align-content: start;
 }
 
 .nav-item {
