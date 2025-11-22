@@ -344,6 +344,12 @@ button.full {
   background: #f5f8fc;
   color: var(--text);
 }
+[data-theme='dark'] .pill {
+  background: #0f1a2d;
+  border-color: #30456a;
+  color: #e9f0ff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
 
 .pill.small {
   font-size: 12px;
@@ -363,6 +369,11 @@ button.full {
 .pill.tone-accent {
   border-color: #b9d3f5;
   color: var(--primary);
+}
+[data-theme='dark'] .pill.tone-accent,
+[data-theme='dark'] .pill.tone-info {
+  border-color: #4a6ca5;
+  color: #9fc6ff;
 }
 
 .grid {
@@ -1137,6 +1148,21 @@ textarea {
 .pill.clickable.active {
   border-color: var(--primary);
   background: #e8f1ff;
+}
+[data-theme='dark'] .pill.clickable {
+  background: #0f1a2d;
+  border-color: #30456a;
+  color: #e9f0ff;
+}
+[data-theme='dark'] .pill.clickable:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(88, 166, 255, 0.25);
+}
+[data-theme='dark'] .pill.clickable.active {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
 }
 
 .toast-stack {
