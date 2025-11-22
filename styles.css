@@ -409,6 +409,52 @@ button.full {
   gap: 6px;
 }
 
+.practice-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.practice-nav {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: #f9fbff;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.nav-item {
+  padding: 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: #ffffff;
+  text-align: center;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.nav-item:hover {
+  border-color: var(--primary);
+}
+
+.nav-item.active {
+  border-color: var(--primary);
+  background: #e8f1ff;
+}
+
+.nav-item.correct {
+  border-color: #2ba66c;
+  background: #e6f5ec;
+}
+
+.nav-item.incorrect {
+  border-color: #d73d4a;
+  background: #fdebed;
+}
+
 .control-row {
   display: flex;
   gap: 10px;
