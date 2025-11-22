@@ -127,6 +127,14 @@ const hideAccessOverlay = () => {
   overlay?.classList.add('hidden');
 };
 
+// Theme toggle
+const getTheme = () => localStorage.getItem('examforge.theme') || 'light';
+const applyTheme = (theme) => {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('examforge.theme', theme);
+};
+applyTheme(getTheme());
+
 const loadBanks = async () => {
   state.banksLoading = true;
   setDashStatus('Loading banks…');
@@ -461,6 +469,52 @@ const handleNavClick = (event) => {
   renderPractice();
 };
 
+// Keyboard navigation for practice (arrow keys + Enter/Space)
+const handleKeyNav = (event) => {
+  if (DOM.practice?.classList.contains('hidden')) return;
+  const activeElement = document.activeElement;
+  // Ignore when typing in inputs
+  if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) return;
+  const { questions, current, submissions } = state.practice;
+  if (!questions.length) return;
+  const answers = questions[current]?.answers || [];
+  const sub = submissions[current] || {};
+  const maxIdx = answers.length - 1;
+  if (maxIdx < 0) return;
+
+  const move = (dir) => {
+    let next = sub.selected ?? 0;
+    if (dir === 'down' || dir === 'right') next = Math.min(maxIdx, next + 1);
+    if (dir === 'up' || dir === 'left') next = Math.max(0, next - 1);
+    const nextSubs = submissions.slice();
+    nextSubs[current] = { ...sub, selected: next, submitted: false, correct: null };
+    state.practice.submissions = nextSubs;
+    renderPractice();
+  };
+
+  switch (event.key) {
+    case 'ArrowDown':
+    case 'ArrowRight':
+      event.preventDefault();
+      move('down');
+      break;
+    case 'ArrowUp':
+    case 'ArrowLeft':
+      event.preventDefault();
+      move('up');
+      break;
+    case 'Enter':
+    case ' ':
+      if (sub.selected !== null && sub.selected !== undefined) {
+        event.preventDefault();
+        handleSubmitQuestion();
+      }
+      break;
+    default:
+      break;
+  }
+};
+
 const finishQuiz = () => {
   const { questions, submissions } = state.practice;
   if (!questions.length) {
@@ -552,6 +606,11 @@ const init = async () => {
   loadBanks(); // async fetch real banks
   refreshStats();
   restorePractice();
+  // Theme toggle
+  document.getElementById('theme-toggle')?.addEventListener('click', () => {
+    const next = getTheme() === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+  });
   DOM.btnSignin?.addEventListener('click', () => auth('signin'));
   DOM.btnSignup?.addEventListener('click', () => auth('signup'));
   DOM.btnSignout?.addEventListener('click', signOut);
@@ -569,6 +628,7 @@ const init = async () => {
     persistPractice();
     renderPractice();
   });
+  document.addEventListener('keydown', handleKeyNav);
   DOM.btnResetStats?.addEventListener('click', () => {
     state.stats = { accuracy: 0, answered: 0, time: 0 };
     refreshStats();
