@@ -52,7 +52,11 @@
           <h2 class="card-title" id="dash-greeting">Welcome back</h2>
           <p class="lede">Choose a bank, see your stats, and jump into practice.</p>
         </div>
-        <div class="pill tone-accent" id="dash-session">Signed in</div>
+        <div class="dash-actions">
+          <button class="ghost small" id="btn-profile">Profile</button>
+          <button class="ghost small" id="btn-signout-dash">Sign out</button>
+          <div class="pill tone-accent" id="dash-session">Signed in</div>
+        </div>
       </div>
 
       <div class="grid split">
@@ -105,5 +109,11 @@
       </div>
     </section>
   </main>
+  <div class="loading-overlay hidden" id="loading-overlay">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <p id="loading-text">Loading…</p>
+    </div>
+  </div>
 </body>
 </html>
