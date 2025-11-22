@@ -3,6 +3,8 @@ import { supabaseAvailable, supabaseClient } from './supabase.js';
 const DOM = {
   practiceBank: document.getElementById('practice-bank'),
   practiceProgress: document.getElementById('practice-progress'),
+  miniProgress: document.getElementById('mini-progress'),
+  miniTimer: document.getElementById('mini-timer'),
   practiceStem: document.getElementById('practice-stem'),
   practiceImage: document.getElementById('practice-image'),
   practiceOptions: document.getElementById('practice-options'),
@@ -90,6 +92,7 @@ const renderPractice = () => {
   const { questions, current, submissions, bankName, timed, timer } = state.practice;
   if (DOM.practiceBank) DOM.practiceBank.textContent = bankName || 'Practice';
   if (DOM.practiceProgress) DOM.practiceProgress.textContent = questions.length ? `${current + 1} / ${questions.length}` : '0 / 0';
+  if (DOM.miniProgress) DOM.miniProgress.textContent = questions.length ? `${current + 1} / ${questions.length}` : '0 / 0';
   if (!questions.length) {
     if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'No questions available.';
     return;
@@ -126,7 +129,9 @@ const renderPractice = () => {
   }
   if (DOM.practiceStatus) DOM.practiceStatus.textContent = submission.flagged ? 'Flagged for review' : '';
   if (DOM.toggleTimed) DOM.toggleTimed.checked = timed;
-  if (DOM.timerDisplay) DOM.timerDisplay.textContent = timed ? `${timer.remaining}s` : '--';
+  const timerText = timed ? `${timer.remaining}s` : '--';
+  if (DOM.timerDisplay) DOM.timerDisplay.textContent = timerText;
+  if (DOM.miniTimer) DOM.miniTimer.textContent = timerText;
   if (DOM.practiceNav) {
     DOM.practiceNav.innerHTML = questions
       .map((_, idx) => {
@@ -143,6 +148,11 @@ const renderPractice = () => {
         return `<div class="${classes}" data-nav="${idx}">${flag}<span class="nav-number">${idx + 1}</span></div>`;
       })
       .join('');
+  }
+  if (DOM.btnFlagQuestion) {
+    DOM.btnFlagQuestion.classList.toggle('active', submission.flagged);
+    DOM.btnFlagQuestion.setAttribute('aria-pressed', submission.flagged ? 'true' : 'false');
+    DOM.btnFlagQuestion.textContent = submission.flagged ? '⚑ Flagged' : '⚑ Flag';
   }
 };
 
@@ -220,6 +230,8 @@ const handleOptionClick = (event) => {
   const li = event.target.closest('.option');
   if (!li || !DOM.practiceOptions?.contains(li)) return;
   const idx = state.practice.current;
+  const currentSubmission = state.practice.submissions[idx] || {};
+  if (currentSubmission.submitted) return; // lock answers after submit
   const submissions = state.practice.submissions.slice();
   submissions[idx] = { ...submissions[idx], selected: Number(li.dataset.idx), submitted: false, correct: null };
   state.practice.submissions = submissions;
@@ -302,9 +314,12 @@ const startTimer = () => {
   clearInterval(state.practice.timer.handle);
   if (!state.practice.timed) return;
   state.practice.timer.remaining = state.practice.timer.duration;
+  if (DOM.timerDisplay) DOM.timerDisplay.textContent = `${state.practice.timer.remaining}s`;
+  if (DOM.miniTimer) DOM.miniTimer.textContent = `${state.practice.timer.remaining}s`;
   state.practice.timer.handle = setInterval(() => {
     state.practice.timer.remaining -= 1;
     if (DOM.timerDisplay) DOM.timerDisplay.textContent = `${state.practice.timer.remaining}s`;
+    if (DOM.miniTimer) DOM.miniTimer.textContent = `${state.practice.timer.remaining}s`;
     if (state.practice.timer.remaining <= 0) {
       clearInterval(state.practice.timer.handle);
       handleSubmitQuestion();
@@ -319,6 +334,14 @@ const handleKeyNav = (event) => {
   if (!questions.length) return;
   const answers = questions[current]?.answers || [];
   const sub = submissions[current] || {};
+  if (sub.submitted) {
+    // Submitted questions are locked; only allow navigation.
+    if (event.key === ' ' || event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'Enter') {
+      event.preventDefault();
+      handleNextQuestion();
+    }
+    return;
+  }
   const maxIdx = answers.length - 1;
   if (maxIdx < 0) return;
 
@@ -344,11 +367,14 @@ const handleKeyNav = (event) => {
       move('up');
       break;
     case 'Enter':
-    case ' ':
       if (sub.selected !== null && sub.selected !== undefined) {
         event.preventDefault();
         handleSubmitQuestion();
       }
+      break;
+    case ' ':
+      event.preventDefault();
+      handleNextQuestion();
       break;
     default:
       break;

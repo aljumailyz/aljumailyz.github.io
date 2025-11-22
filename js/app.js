@@ -39,6 +39,7 @@ const DOM = {
   btnChangePassword: document.getElementById('btn-change-password'),
   profileStatus: document.getElementById('profile-status'),
   selectTimed: document.getElementById('select-timed'),
+  themeToggleHero: document.getElementById('theme-toggle'),
   statAccuracy: document.getElementById('stat-accuracy'),
   statAnswered: document.getElementById('stat-answered'),
   statTime: document.getElementById('stat-time'),
@@ -779,6 +780,10 @@ const init = async () => {
   restorePractice();
   // Theme toggle
   document.getElementById('theme-toggle')?.addEventListener('click', () => {
+    const next = getTheme() === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+  });
+  DOM.themeToggleHero?.addEventListener('click', () => {
     const next = getTheme() === 'light' ? 'dark' : 'light';
     applyTheme(next);
   });

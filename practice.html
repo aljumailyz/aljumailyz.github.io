@@ -34,7 +34,14 @@
           <p class="overline">Practice</p>
           <p class="card-title" id="practice-bank">Loading…</p>
         </div>
-        <div class="chip" id="practice-progress">0 / 0</div>
+        <div class="head-actions">
+          <button class="ghost small" id="btn-finish-quiz">Finish quiz</button>
+          <div class="chip" id="practice-progress">0 / 0</div>
+        </div>
+      </div>
+      <div class="sticky-status">
+        <div class="mini-chip" id="mini-progress">0 / 0</div>
+        <div class="mini-chip timer" id="mini-timer">--</div>
       </div>
       <div class="control-row">
         <label class="toggle">
@@ -52,10 +59,9 @@
           <img class="q-image hidden" id="practice-image" alt="Question image">
           <ol class="option-list" id="practice-options"></ol>
           <div class="actions">
-            <button class="ghost" id="btn-flag-question">Flag</button>
+            <button class="flag-button" id="btn-flag-question" aria-pressed="false">⚑ Flag</button>
             <button class="primary" id="btn-submit-question">Submit</button>
             <button class="ghost" id="btn-next-question">Next</button>
-            <button class="ghost" id="btn-finish-quiz">Finish quiz</button>
           </div>
           <p class="hint" id="practice-status"></p>
         </div>
