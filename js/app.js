@@ -30,6 +30,7 @@ const DOM = {
   menuPanel: document.getElementById('user-menu-panel'),
   menuProfile: document.getElementById('menu-profile'),
   menuTheme: document.getElementById('menu-theme'),
+  menuOldUI: document.getElementById('menu-old-ui'),
   menuSignout: document.getElementById('menu-signout'),
   menuInitials: document.getElementById('user-menu-initials'),
   menuEmail: document.getElementById('user-menu-email'),
@@ -126,6 +127,7 @@ const getAllowedEmails = () => {
 };
 
 const SELECTED_BANKS_KEY = 'examforge.selectedBanks';
+const OLD_UI_KEY = 'examforge.ui.oldschool';
 
 // Fisher-Yates shuffle
 const shuffleArray = (arr = []) => {
@@ -517,6 +519,7 @@ const signOut = async () => {
     setAuthAlert('');
     persistPractice(true);
     DOM.profilePanel?.classList.add('hidden');
+    applyOldUI(loadOldUI());
     return;
   }
   await supabaseClient().auth.signOut();
@@ -525,6 +528,7 @@ const signOut = async () => {
   setAuthAlert('');
   persistPractice(true);
   DOM.profilePanel?.classList.add('hidden');
+  applyOldUI(loadOldUI());
 };
 
 const checkSession = async () => {
@@ -549,6 +553,7 @@ const checkSession = async () => {
       hydrateProfileForm();
     }
   });
+  applyOldUI(loadOldUI());
 };
 
 const setProgress = (el, value) => {
@@ -629,6 +634,24 @@ const refreshStats = () => {
 const initRealtime = () => {
   if (!supabaseAvailable()) return;
   // Realtime disabled: skip subscribing to Postgres changes to avoid WebSocket attempts.
+};
+
+const applyOldUI = (enabled) => {
+  document.body.classList.toggle('old-fashioned', enabled);
+  if (DOM.menuOldUI) DOM.menuOldUI.textContent = enabled ? 'Old-fashioned view: On' : 'Old-fashioned view: Off';
+  try {
+    localStorage.setItem(OLD_UI_KEY, enabled ? '1' : '0');
+  } catch (err) {
+    // ignore
+  }
+};
+
+const loadOldUI = () => {
+  try {
+    return localStorage.getItem(OLD_UI_KEY) === '1';
+  } catch (err) {
+    return false;
+  }
 };
 
 const handleStartPractice = () => {
@@ -1011,6 +1034,7 @@ const init = async () => {
   restorePractice();
   // Theme toggle
   DOM.themeToggleHero?.addEventListener('click', toggleTheme);
+  applyOldUI(loadOldUI());
   DOM.btnSignin?.addEventListener('click', () => auth('signin'));
   DOM.btnSignup?.addEventListener('click', () => auth('signup'));
   DOM.btnSignout?.addEventListener('click', signOut);
@@ -1058,6 +1082,7 @@ const init = async () => {
   DOM.menuProfile?.addEventListener('click', () => (window.location.href = 'profile.html'));
   DOM.menuSignout?.addEventListener('click', signOut);
   DOM.menuTheme?.addEventListener('click', toggleTheme);
+  DOM.menuOldUI?.addEventListener('click', () => applyOldUI(!document.body.classList.contains('old-fashioned')));
   document.addEventListener('click', (e) => {
     if (!DOM.menuPanel || !DOM.menuToggle) return;
     if (DOM.menuPanel.contains(e.target) || DOM.menuToggle.contains(e.target)) return;
