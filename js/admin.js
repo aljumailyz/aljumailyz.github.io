@@ -23,6 +23,7 @@ const DOM = {
   btnSaveBank: document.getElementById('btn-save-bank'),
   btnResetBank: document.getElementById('btn-reset-bank'),
   btnNewBank: document.getElementById('btn-new-bank'),
+  btnExportBanks: document.getElementById('btn-export-banks'),
   questionForm: {
     bank: document.getElementById('question-bank'),
     topic: document.getElementById('question-topic'),
@@ -453,6 +454,65 @@ const deleteQuestion = async (id) => {
     return;
   }
   await loadQuestions();
+};
+
+const exportBanks = async () => {
+  const client = getClient();
+  if (!client) {
+    setDashStatus('Supabase keys missing; cannot export.');
+    return;
+  }
+  setDashStatus('Exporting banks...');
+  try {
+    const { data: banks, error: bankError } = await client
+      .from('banks')
+      .select('id, name, year, subject, description')
+      .order('created_at', { ascending: false });
+    if (bankError) {
+      setDashStatus(`Export failed: ${bankError.message}`);
+      return;
+    }
+    const { data: questions, error: qError } = await client
+      .from('questions')
+      .select('id, bank_id, topic, stem, image_url, answers')
+      .order('created_at', { ascending: false });
+    if (qError) {
+      setDashStatus(`Export failed: ${qError.message}`);
+      return;
+    }
+    const grouped = (questions || []).reduce((acc, q) => {
+      const bankId = q.bank_id;
+      if (!acc[bankId]) acc[bankId] = [];
+      acc[bankId].push({
+        id: q.id,
+        topic: q.topic,
+        stem: q.stem,
+        image_url: q.image_url,
+        answers: q.answers || [],
+      });
+      return acc;
+    }, {});
+    const payload = (banks || []).map((b) => ({
+      bank: {
+        id: b.id,
+        name: b.name,
+        year: b.year,
+        subject: b.subject,
+        description: b.description,
+      },
+      questions: grouped[b.id] || [],
+    }));
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'examforge-banks.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    setDashStatus(`Exported ${payload.length} banks.`);
+  } catch (err) {
+    setDashStatus('Export failed.');
+  }
 };
 
 const renderBanks = () => {
@@ -1201,6 +1261,7 @@ const init = async () => {
   DOM.btnNewBank?.addEventListener('click', handleNewBank);
   DOM.btnSaveBank?.addEventListener('click', handleSaveBankClick);
   DOM.btnResetBank?.addEventListener('click', resetBankForm);
+  DOM.btnExportBanks?.addEventListener('click', exportBanks);
 
   // User search
   DOM.userSearch?.addEventListener('input', renderUsers);
