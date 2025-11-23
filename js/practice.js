@@ -736,6 +736,8 @@ const init = async () => {
     const next = getTheme() === 'light' ? 'dark' : 'light';
     applyTheme(next);
   });
+  // Fetch AI key upfront so Explain can enable if available.
+  fetchAIKeyFromSupabase().finally(updateExplainAvailability);
   document.addEventListener('keydown', handleKeyNav);
   DOM.practiceOptions?.addEventListener('click', handleOptionClick);
   DOM.btnSubmitQuestion?.addEventListener('click', handleSubmitQuestion);

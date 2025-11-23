@@ -536,7 +536,6 @@ const checkSession = async () => {
     setAuthUI('');
     await loadStats();
     await loadAccessGrants();
-    initRealtime();
     enforceAccess();
     hydrateProfileForm();
   }
@@ -546,7 +545,6 @@ const checkSession = async () => {
     loadStats();
     if (session?.user) {
       loadAccessGrants();
-      initRealtime();
       enforceAccess();
       hydrateProfileForm();
     }
@@ -630,16 +628,7 @@ const refreshStats = () => {
 
 const initRealtime = () => {
   if (!supabaseAvailable()) return;
-  const client = supabaseClient();
-  if (!client?.channel) return;
-  // Avoid duplicate subscriptions by reusing a named channel.
-  if (initRealtime.channel) return;
-  const channel = client.channel('banks-access-changes');
-  channel
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'banks' }, () => loadBanks())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'access_grants' }, () => loadAccessGrants())
-    .subscribe();
-  initRealtime.channel = channel;
+  // Realtime disabled: skip subscribing to Postgres changes to avoid WebSocket attempts.
 };
 
 const handleStartPractice = () => {
