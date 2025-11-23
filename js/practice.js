@@ -31,6 +31,9 @@ const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
 
 const state = {
   user: null,
+  access: {
+    allowed: [],
+  },
   practice: {
     bankName: '',
     bankId: '',
@@ -101,11 +104,19 @@ const loadSelection = () => {
   }
 };
 
+const getAllowedEmails = () => {
+  const dynamic = state.access?.allowed || [];
+  return Array.from(new Set([...paidUsers, ...dynamic]));
+};
+
 const enforceAccess = () => {
   const email = state.user?.email?.toLowerCase() || '';
-  const hasAccess = email && paidUsers.includes(email);
+  const allowed = getAllowedEmails();
+  const hasAccess = email && allowed.includes(email);
   if (!hasAccess) {
     setStatus('Access required. Please contact Zaid to enable access.');
+  } else {
+    setStatus('');
   }
   return hasAccess;
 };
@@ -300,6 +311,26 @@ const loadQuestions = async (bankId, bankName, timedSelection = false) => {
   hideLoading();
   renderPractice();
   startTimer();
+};
+
+const loadAccessGrants = async () => {
+  if (!supabaseAvailable()) return;
+  try {
+    const client = supabaseClient();
+    const { data, error } = await client.from('access_grants').select('email, allowed, expires_at');
+    if (error) return;
+    const now = Date.now();
+    state.access.allowed =
+      data
+        ?.filter((row) => {
+          if (row.allowed === false || !row.email) return false;
+          if (row.expires_at && new Date(row.expires_at).getTime() < now) return false;
+          return true;
+        })
+        .map((row) => row.email.toLowerCase()) || [];
+  } catch (err) {
+    // ignore
+  }
 };
 
 const handleOptionClick = (event) => {
@@ -503,6 +534,7 @@ const init = async () => {
     return;
   }
   state.user = data.session.user;
+  await loadAccessGrants();
   if (!enforceAccess()) return;
   await loadQuestions(selection.bankId, selection.bankName || 'Practice bank', selection.timed);
 };
