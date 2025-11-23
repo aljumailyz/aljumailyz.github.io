@@ -49,6 +49,7 @@ const DOM = {
   loadingOverlay: document.getElementById('loading-overlay'),
   loadingText: document.getElementById('loading-text'),
   btnRefreshBanks: document.getElementById('btn-refresh-banks'),
+  accessSignout: document.getElementById('btn-access-signout'),
   practice: document.getElementById('practice'),
   practiceBank: document.getElementById('practice-bank'),
   practiceProgress: document.getElementById('practice-progress'),
@@ -198,6 +199,10 @@ const applyTheme = (theme) => {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('examforge.theme', theme);
 };
+const toggleTheme = () => {
+  const next = getTheme() === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+};
 applyTheme(getTheme());
 
 const loadBanks = async () => {
@@ -340,7 +345,14 @@ const auth = async (mode) => {
 };
 
 const signOut = async () => {
-  if (!supabaseAvailable()) return;
+  hideAccessOverlay();
+  if (!supabaseAvailable()) {
+    state.user = null;
+    setAuthUI('Signed out.');
+    persistPractice(true);
+    DOM.profilePanel?.classList.add('hidden');
+    return;
+  }
   await supabaseClient().auth.signOut();
   state.user = null;
   setAuthUI('Signed out.');
@@ -830,18 +842,12 @@ const init = async () => {
   refreshStats();
   restorePractice();
   // Theme toggle
-  document.getElementById('theme-toggle')?.addEventListener('click', () => {
-    const next = getTheme() === 'light' ? 'dark' : 'light';
-    applyTheme(next);
-  });
-  DOM.themeToggleHero?.addEventListener('click', () => {
-    const next = getTheme() === 'light' ? 'dark' : 'light';
-    applyTheme(next);
-  });
+  DOM.themeToggleHero?.addEventListener('click', toggleTheme);
   DOM.btnSignin?.addEventListener('click', () => auth('signin'));
   DOM.btnSignup?.addEventListener('click', () => auth('signup'));
   DOM.btnSignout?.addEventListener('click', signOut);
   DOM.btnSignoutDash?.addEventListener('click', signOut);
+  DOM.accessSignout?.addEventListener('click', signOut);
   DOM.btnProfile?.addEventListener('click', () => setDashStatus('Profile coming soon.'));
   DOM.btnStart?.addEventListener('click', startPracticeRedirect);
   DOM.practiceOptions?.addEventListener('click', handleOptionClick);
@@ -882,10 +888,7 @@ const init = async () => {
   DOM.menuToggle?.addEventListener('click', () => DOM.menuPanel?.classList.toggle('hidden'));
   DOM.menuProfile?.addEventListener('click', () => (window.location.href = 'profile.html'));
   DOM.menuSignout?.addEventListener('click', signOut);
-  DOM.menuTheme?.addEventListener('click', () => {
-    const next = getTheme() === 'light' ? 'dark' : 'light';
-    applyTheme(next);
-  });
+  DOM.menuTheme?.addEventListener('click', toggleTheme);
   document.addEventListener('click', (e) => {
     if (!DOM.menuPanel || !DOM.menuToggle) return;
     if (DOM.menuPanel.contains(e.target) || DOM.menuToggle.contains(e.target)) return;
