@@ -106,6 +106,13 @@ const getPublicAIModel = () => '@preset/ai-explainer';
 let cachedAIKey = null;
 let cachedAIModel = null;
 
+const sanitizeModel = (model) => {
+  if (!model || typeof model !== 'string') return '@preset/ai-explainer';
+  // If a list was stored (comma/space separated), take the first entry only.
+  const first = model.split(/[,\s]+/).filter(Boolean)[0];
+  return first || '@preset/ai-explainer';
+};
+
 const updateExplainAvailability = () => {
   const hasRemoteKey = Boolean(cachedAIKey);
   const disabled = !hasRemoteKey;
@@ -125,7 +132,7 @@ const fetchAIKeyFromSupabase = async () => {
     const { data, error } = await client.from('ai_keys').select('key, model').eq('id', 'public').maybeSingle();
     if (!error && data?.key) {
       cachedAIKey = data.key;
-      cachedAIModel = data.model || getPublicAIModel();
+      cachedAIModel = sanitizeModel(data.model);
       return { key: cachedAIKey, model: cachedAIModel };
     }
   } catch (_err) {
@@ -326,7 +333,7 @@ const explainQuestion = async () => {
     DOM.btnExplain.classList.add('disabled');
   }
   try {
-    const model = publicModel || getPublicAIModel();
+    const model = sanitizeModel(publicModel || getPublicAIModel());
     const prompt = [
       'You are a concise medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 180 words.',
       `Question: ${q.stem}`,
