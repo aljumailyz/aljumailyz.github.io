@@ -48,6 +48,7 @@ const DOM = {
   progressTime: document.getElementById('progress-time'),
   loadingOverlay: document.getElementById('loading-overlay'),
   loadingText: document.getElementById('loading-text'),
+  btnRefreshBanks: document.getElementById('btn-refresh-banks'),
   practice: document.getElementById('practice'),
   practiceBank: document.getElementById('practice-bank'),
   practiceProgress: document.getElementById('practice-progress'),
@@ -348,6 +349,7 @@ const checkSession = async () => {
     setAuthUI('');
     await loadStats();
     await loadAccessGrants();
+    initRealtime();
     enforceAccess();
     hydrateProfileForm();
   }
@@ -357,6 +359,7 @@ const checkSession = async () => {
     loadStats();
     if (session?.user) {
       loadAccessGrants();
+      initRealtime();
       enforceAccess();
       hydrateProfileForm();
     }
@@ -431,6 +434,20 @@ const refreshStats = () => {
   setProgress(DOM.progressAccuracy, accuracy || 0);
   setProgress(DOM.progressAnswered, Math.min(((answered || 0) / 200) * 100, 100));
   setProgress(DOM.progressTime, Math.min(((time || 0) / 300) * 100, 100));
+};
+
+const initRealtime = () => {
+  if (!supabaseAvailable()) return;
+  const client = supabaseClient();
+  if (!client?.channel) return;
+  // Avoid duplicate subscriptions by reusing a named channel.
+  if (initRealtime.channel) return;
+  const channel = client.channel('banks-access-changes');
+  channel
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'banks' }, () => loadBanks())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'access_grants' }, () => loadAccessGrants())
+    .subscribe();
+  initRealtime.channel = channel;
 };
 
 const handleStartPractice = () => {
@@ -842,6 +859,10 @@ const init = async () => {
   DOM.btnChangePassword?.addEventListener('click', changePassword);
   DOM.btnProfile?.addEventListener('click', () => {
     window.location.href = 'profile.html';
+  });
+  DOM.btnRefreshBanks?.addEventListener('click', () => {
+    setDashStatus('Refreshing banks…');
+    loadBanks();
   });
   DOM.yearPillsFilter?.addEventListener('click', (event) => {
     const pill = event.target.closest('.pill');
