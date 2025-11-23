@@ -15,6 +15,10 @@ const DOM = {
   bankNameInput: document.getElementById('bank-name'),
   bankYearInput: document.getElementById('bank-year'),
   bankSubjectInput: document.getElementById('bank-subject'),
+  bankFilter: document.getElementById('bank-filter'),
+  bankFilterYear: document.getElementById('bank-filter-year'),
+  bankFilterSubject: document.getElementById('bank-filter-subject'),
+  bankSort: document.getElementById('bank-sort'),
   btnSaveBank: document.getElementById('btn-save-bank'),
   btnResetBank: document.getElementById('btn-reset-bank'),
   btnNewBank: document.getElementById('btn-new-bank'),
@@ -45,6 +49,8 @@ const DOM = {
   importStatus: document.getElementById('import-status'),
   importYear: document.getElementById('import-year'),
   importSubject: document.getElementById('import-subject'),
+  questionFilterBank: document.getElementById('question-filter-bank'),
+  questionFilterText: document.getElementById('question-filter-text'),
 };
 
 const state = {
@@ -333,7 +339,46 @@ const deleteQuestion = async (id) => {
 
 const renderBanks = () => {
   if (DOM.bankList) {
-    DOM.bankList.innerHTML = state.banks
+    const search = (DOM.bankFilter?.value || '').toLowerCase();
+    const filterYear = DOM.bankFilterYear?.value || 'all';
+    const filterSubject = DOM.bankFilterSubject?.value || 'all';
+    const sortBy = DOM.bankSort?.value || 'name';
+
+    // Build subject options
+    if (DOM.bankFilterSubject) {
+      const current = DOM.bankFilterSubject.value;
+      const subjects = Array.from(
+        new Set(
+          state.banks
+            .map((b) => (b.subject || '').trim())
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b)),
+        ),
+      );
+      const subjectOptions = ['<option value="all">All subjects</option>']
+        .concat(subjects.map((s) => `<option value="${s}">${s}</option>`))
+        .join('');
+      DOM.bankFilterSubject.innerHTML = subjectOptions;
+      if (current && subjects.includes(current)) DOM.bankFilterSubject.value = current;
+    }
+
+    const filtered = state.banks
+      .filter((b) => {
+        const text = `${b.name} ${b.subject || ''}`.toLowerCase();
+        const matchesSearch = !search || text.includes(search);
+        const matchesYear = filterYear === 'all' || b.year === filterYear;
+        const matchesSubject = filterSubject === 'all' || (b.subject || '') === filterSubject;
+        return matchesSearch && matchesYear && matchesSubject;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'year') return (a.year || '').localeCompare(b.year || '') || a.name.localeCompare(b.name);
+        if (sortBy === 'subject')
+          return (a.subject || '').localeCompare(b.subject || '') || a.name.localeCompare(b.name);
+        if (sortBy === 'count') return (b.count || 0) - (a.count || 0) || a.name.localeCompare(b.name);
+        return a.name.localeCompare(b.name);
+      });
+
+    DOM.bankList.innerHTML = filtered
       .map(
         (b) => `
         <div class="list-item">
@@ -359,6 +404,17 @@ const renderBanks = () => {
       )
       .join('');
     DOM.bankSelect.innerHTML = opts;
+  }
+
+  if (DOM.questionFilterBank) {
+    const opts = ['<option value="all">All banks</option>']
+      .concat(
+        state.banks.map(
+          (b) => `<option value="${b.id}">${b.name}${b.year ? ` • ${b.year}` : ''}${b.subject ? ` • ${b.subject}` : ''}</option>`,
+        ),
+      )
+      .join('');
+    DOM.questionFilterBank.innerHTML = opts;
   }
 };
 
@@ -496,7 +552,15 @@ const renderQuestions = () => {
     DOM.questionList.innerHTML = '<p class="hint">No questions yet.</p>';
     return;
   }
-  DOM.questionList.innerHTML = state.questions
+  const filterBank = DOM.questionFilterBank?.value || 'all';
+  const search = (DOM.questionFilterText?.value || '').toLowerCase();
+  const filtered = state.questions.filter((q) => {
+    const matchesBank = filterBank === 'all' || q.bankId === filterBank;
+    const text = `${q.topic || ''} ${q.stem || ''}`.toLowerCase();
+    const matchesSearch = !search || text.includes(search);
+    return matchesBank && matchesSearch;
+  });
+  DOM.questionList.innerHTML = filtered
     .map(
       (q) => `
       <div class="question-card" data-id="${q.id}">
@@ -933,6 +997,12 @@ const init = async () => {
   DOM.btnRefreshActivity?.addEventListener('click', loadUserActivity);
   DOM.btnClearHistory?.addEventListener('click', clearHistory);
   DOM.btnAddAccess?.addEventListener('click', handleAddAccess);
+  DOM.bankFilter?.addEventListener('input', renderBanks);
+  DOM.bankFilterYear?.addEventListener('change', renderBanks);
+  DOM.bankFilterSubject?.addEventListener('change', renderBanks);
+  DOM.bankSort?.addEventListener('change', renderBanks);
+  DOM.questionFilterBank?.addEventListener('change', renderQuestions);
+  DOM.questionFilterText?.addEventListener('input', renderQuestions);
 
   // Question actions
   DOM.questionForm.btnSave?.addEventListener('click', saveQuestion);

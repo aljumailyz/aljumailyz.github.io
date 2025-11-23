@@ -63,6 +63,41 @@
             </div>
             <button class="primary small" id="btn-new-bank">New bank</button>
           </div>
+          <div class="grid split">
+            <label class="input-group">
+              <span>Search banks</span>
+              <input id="bank-filter" placeholder="Name, subject…" />
+            </label>
+            <div class="grid split">
+              <label class="input-group">
+                <span>Year</span>
+                <select id="bank-filter-year">
+                  <option value="all">All years</option>
+                  <option value="Year 1">Year 1</option>
+                  <option value="Year 2">Year 2</option>
+                  <option value="Year 3">Year 3</option>
+                  <option value="Year 4">Year 4</option>
+                  <option value="Year 5">Year 5</option>
+                  <option value="Year 6">Year 6</option>
+                </select>
+              </label>
+              <label class="input-group">
+                <span>Subject</span>
+                <select id="bank-filter-subject">
+                  <option value="all">All subjects</option>
+                </select>
+              </label>
+              <label class="input-group">
+                <span>Sort by</span>
+                <select id="bank-sort">
+                  <option value="name">Name</option>
+                  <option value="year">Year</option>
+                  <option value="subject">Subject</option>
+                  <option value="count">Question count</option>
+                </select>
+              </label>
+            </div>
+          </div>
           <div class="bank-form">
             <label class="input-group">
               <span>Bank name</span>
@@ -150,6 +185,19 @@
             <p class="card-title">Add / edit up to 6 answers</p>
           </div>
           <button class="primary small" id="btn-new-question">New question</button>
+        </div>
+
+        <div class="grid split">
+          <label class="input-group">
+            <span>Filter by bank</span>
+            <select id="question-filter-bank">
+              <option value="all">All banks</option>
+            </select>
+          </label>
+          <label class="input-group">
+            <span>Search stems/topics</span>
+            <input id="question-filter-text" placeholder="Search questions" />
+          </label>
         </div>
 
         <div class="question-form">
