@@ -103,17 +103,37 @@ const hideExplainOverlay = () => {
 
 const getPublicAIKey = () => window.__AI_PUBLIC_KEY || '';
 const getPublicAIModel = () => window.__AI_MODEL || '@preset/ai-explainer';
+let cachedAIKey = null;
+let cachedAIModel = null;
 
 const updateExplainAvailability = () => {
   const hasEndpoint = Boolean(getExplainEndpoint());
   const hasPublicKey = Boolean(getPublicAIKey());
-  const disabled = !(hasEndpoint || hasPublicKey);
+  const hasRemoteKey = Boolean(cachedAIKey);
+  const disabled = !(hasEndpoint || hasPublicKey || hasRemoteKey);
   if (DOM.btnExplain) {
     DOM.btnExplain.classList.toggle('disabled', disabled);
     DOM.btnExplain.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     if (!state.explainLoading) DOM.btnExplain.textContent = disabled ? 'Explain (setup needed)' : 'Explain';
   }
-  if (DOM.aiHint) DOM.aiHint.textContent = hasEndpoint || hasPublicKey ? 'AI' : 'Set config.js';
+  if (DOM.aiHint) DOM.aiHint.textContent = hasEndpoint || hasPublicKey || hasRemoteKey ? 'AI' : 'Set config.js';
+};
+
+const fetchAIKeyFromSupabase = async () => {
+  if (cachedAIKey) return { key: cachedAIKey, model: cachedAIModel || getPublicAIModel() };
+  if (!supabaseAvailable()) return { key: getPublicAIKey(), model: getPublicAIModel() };
+  try {
+    const client = supabaseClient();
+    const { data, error } = await client.from('ai_keys').select('key, model').eq('id', 'public').maybeSingle();
+    if (!error && data?.key) {
+      cachedAIKey = data.key;
+      cachedAIModel = data.model || getPublicAIModel();
+      return { key: cachedAIKey, model: cachedAIModel };
+    }
+  } catch (_err) {
+    // fall back silently
+  }
+  return { key: getPublicAIKey(), model: getPublicAIModel() };
 };
 
 const getExplainEndpoint = () => {
@@ -293,9 +313,9 @@ const renderPractice = () => {
 const explainQuestion = async () => {
   const { questions, current } = state.practice;
   const endpoint = getExplainEndpoint();
-  const publicKey = getPublicAIKey();
+  const { key: publicKey, model: publicModel } = await fetchAIKeyFromSupabase();
   if (!endpoint && !publicKey) {
-    showExplainOverlay('Set Supabase URL or AI public key in config.js to enable AI explanations.');
+    showExplainOverlay('Set Supabase URL or AI key (in Supabase table ai_keys or config.js) to enable AI explanations.');
     return;
   }
   if (!questions.length) return;
@@ -352,7 +372,7 @@ const explainQuestion = async () => {
       if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed: no public key configured.';
       return;
     }
-    const model = getPublicAIModel();
+    const model = publicModel || getPublicAIModel();
     const prompt = [
       'You are a concise medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 180 words.',
       `Question: ${q.stem}`,
