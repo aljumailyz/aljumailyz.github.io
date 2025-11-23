@@ -259,13 +259,18 @@ const loadQuestions = async (bankId, bankName, timedSelection = false) => {
       .select('id, stem, image_url, answers')
       .eq('bank_id', bankId)
       .order('created_at', { ascending: false });
-    if (!error && data?.length) {
+    if (error) {
+      console.warn('Questions load error', error);
+      setStatus(`Could not load questions (${error.message || error.code || 'RLS/permissions?'}).`);
+    } else if (data?.length) {
       questions = data.map((q) => ({
         id: q.id,
         stem: q.stem,
         imageUrl: q.image_url,
         answers: shuffleArray(q.answers || []),
       }));
+    } else {
+      setStatus('No questions found for this bank.');
     }
   }
   if (!questions.length) {

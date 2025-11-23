@@ -236,8 +236,13 @@ const loadBanks = async () => {
   }
   loadAccessGrants(); // warm access list alongside banks
   const { data, error } = await client.from('banks').select('id, name, year, subject').order('created_at', { ascending: false });
-  if (error || !data?.length) {
-    stateBanks.banks = sampleBanks;
+  if (error) {
+    console.warn('Banks load error', error);
+    setDashStatus(`Could not load banks (${error.message || error.code || 'RLS/permissions?'}).`);
+    stateBanks.banks = [];
+  } else if (!data?.length) {
+    setDashStatus('No banks found. Check permissions or add banks.');
+    stateBanks.banks = [];
   } else {
     stateBanks.banks = data.map((b) => ({
       id: b.id,
