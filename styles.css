@@ -1510,6 +1510,34 @@ textarea {
   align-items: center;
 }
 
+.ai-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pill-group {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.ai-mode-btn.active {
+  background: #e8f1ff;
+  border-color: var(--primary);
+}
+[data-theme='dark'] .ai-mode-btn.active {
+  background: rgba(88, 166, 255, 0.16);
+  border-color: var(--primary);
+  color: #e9f0ff;
+}
+
+.followup-box {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
 .collapsed-text {
   max-height: 140px;
   overflow: hidden;

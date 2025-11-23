@@ -38,6 +38,8 @@ const DOM = {
   btnCopyExplain: document.getElementById('btn-copy-explain'),
   btnToggleExplain: document.getElementById('btn-toggle-explain'),
   btnRetryExplain: document.getElementById('btn-retry-explain'),
+  followupInput: document.getElementById('followup-input'),
+  btnAskFollowup: document.getElementById('btn-ask-followup'),
 };
 
 const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
@@ -64,6 +66,7 @@ const state = {
     reviewQueue: [],
   },
   explainLoading: false,
+  aiMode: 'concise',
 };
 
 const shuffleArray = (arr = []) => {
@@ -101,17 +104,42 @@ const hideExplainOverlay = () => {
   if (DOM.explainOverlay) DOM.explainOverlay.classList.add('hidden');
 };
 
+const DEFAULT_MODEL = '@preset/ai-explainer';
 const getPublicAIKey = () => ''; // disabled; use Supabase-stored key instead
-const getPublicAIModel = () => '@preset/ai-explainer';
+const getPublicAIModel = () => DEFAULT_MODEL;
 let cachedAIKey = null;
+let cachedAIModel = null;
 
 const sanitizeModel = (model) => {
-  if (!model || typeof model !== 'string') return '@preset/ai-explainer';
-  // If a list was stored (comma/space separated), take the first entry only.
+  if (!model || typeof model !== 'string') return DEFAULT_MODEL;
   const first = model.split(/[,\s]+/).filter(Boolean)[0];
-  return first || '@preset/ai-explainer';
+  return first || DEFAULT_MODEL;
 };
 
+const formatExplanation = (text) => {
+  if (!text) return '';
+  // Strip common markdown emphasis/backticks and normalize bullets.
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/^- /gm, '• ')
+    .trim();
+};
+
+const buildPrompt = (stem, answers, correctIndex, followUp = '', wordLimit = 180) => {
+  return [
+    `You are a concise medical explainer. Spell out abbreviations on first mention. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under ${wordLimit} words.`,
+    `Question: ${stem}`,
+    'Answers:',
+    answers.map((a, i) => `${i + 1}. ${a}${i === correctIndex ? ' (correct)' : ''}`).join('\n'),
+    followUp ? `Follow-up: ${followUp}` : '',
+    'Return a clear teaching explanation with abbreviations expanded the first time they appear.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+};
 const updateExplainAvailability = () => {
   const hasRemoteKey = Boolean(cachedAIKey);
   const disabled = !hasRemoteKey;
@@ -124,14 +152,15 @@ const updateExplainAvailability = () => {
 };
 
 const fetchAIKeyFromSupabase = async () => {
-  if (cachedAIKey) return { key: cachedAIKey, model: getPublicAIModel() };
+  if (cachedAIKey) return { key: cachedAIKey, model: cachedAIModel || getPublicAIModel() };
   if (!supabaseAvailable()) return { key: '', model: getPublicAIModel() };
   try {
     const client = supabaseClient();
     const { data, error } = await client.from('ai_keys').select('key, model').eq('id', 'public').maybeSingle();
     if (!error && data?.key) {
       cachedAIKey = data.key;
-      return { key: cachedAIKey, model: getPublicAIModel() };
+      cachedAIModel = sanitizeModel(data.model);
+      return { key: cachedAIKey, model: cachedAIModel };
     }
   } catch (_err) {
     // fall back silently
@@ -139,11 +168,7 @@ const fetchAIKeyFromSupabase = async () => {
   return { key: getPublicAIKey(), model: getPublicAIModel() };
 };
 
-const getExplainEndpoint = () => {
-  const base = window.__SUPABASE_CONFIG?.supabaseUrl?.replace(/\/$/, '');
-  if (!base) return null;
-  return `${base}/functions/v1/ai-explain`;
-};
+const getExplainEndpoint = () => null; // Edge function disabled; client-only OpenRouter via Supabase key
 
 const getTheme = () => localStorage.getItem('examforge.theme') || 'light';
 const applyTheme = (theme) => {
@@ -324,6 +349,8 @@ const explainQuestion = async () => {
   const q = questions[current];
   const answers = q.answers?.map((a) => a.text || '') || [];
   const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
+  const wordLimit = state.aiMode === 'detailed' ? 400 : 180;
+  const maxTokens = state.aiMode === 'detailed' ? 1100 : 550;
   state.explainLoading = true;
   showExplainOverlay('Requesting explanation…');
   if (DOM.btnExplain) {
@@ -332,14 +359,8 @@ const explainQuestion = async () => {
   }
   try {
     // Force a single model to avoid OpenRouter models-array errors.
-    const model = getPublicAIModel();
-    const prompt = [
-      'You are a concise medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 180 words.',
-      `Question: ${q.stem}`,
-      'Answers:',
-      answers.map((a, i) => `${i + 1}. ${a}${i === correctIndex ? " (correct)" : ""}`).join('\n'),
-      'Return a concise teaching explanation and a short pathology summary.',
-    ].join('\n\n');
+    const model = sanitizeModel(publicModel || getPublicAIModel());
+    const prompt = buildPrompt(q.stem, answers, correctIndex, '', wordLimit);
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -352,7 +373,7 @@ const explainQuestion = async () => {
           { role: 'system', content: 'You are a concise medical explainer for exam prep.' },
           { role: 'user', content: prompt },
         ],
-        max_tokens: 600,
+        max_tokens: maxTokens,
         temperature: 0.2,
         top_p: 0.9,
       }),
@@ -363,7 +384,7 @@ const explainQuestion = async () => {
       return;
     }
     const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content || data?.explanation || 'No response';
+    const text = formatExplanation(data?.choices?.[0]?.message?.content || data?.explanation || 'No response');
     if (DOM.explainStatus) DOM.explainStatus.textContent = '';
     if (DOM.explainCopy) DOM.explainCopy.textContent = text;
   } catch (err) {
@@ -374,6 +395,59 @@ const explainQuestion = async () => {
       DOM.btnExplain.textContent = 'Explain';
       DOM.btnExplain.classList.remove('disabled');
     }
+  }
+};
+
+const askFollowup = async () => {
+  const followUp = DOM.followupInput?.value?.trim();
+  if (!followUp) {
+    showToast('Enter a follow-up question first.', 'error');
+    return;
+  }
+  const { questions, current } = state.practice;
+  if (!questions.length) return;
+  const q = questions[current];
+  const answers = q.answers?.map((a) => a.text || '') || [];
+  const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
+  const { key: publicKey, model: publicModel } = await fetchAIKeyFromSupabase();
+  if (!publicKey) {
+    showExplainOverlay('No AI key available. Add a key to Supabase table ai_keys (id=public).');
+    return;
+  }
+  const wordLimit = state.aiMode === 'detailed' ? 400 : 180;
+  const maxTokens = state.aiMode === 'detailed' ? 1100 : 550;
+  showExplainOverlay('Requesting follow-up…');
+  try {
+    const model = sanitizeModel(publicModel || getPublicAIModel());
+    const prompt = buildPrompt(q.stem, answers, correctIndex, followUp, wordLimit);
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${publicKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: 'You are a concise medical explainer for exam prep. Spell out abbreviations on first mention.' },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.2,
+        top_p: 0.9,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      if (DOM.explainStatus) DOM.explainStatus.textContent = `AI explain failed: ${errText || res.status}`;
+      return;
+    }
+    const data = await res.json();
+    const text = formatExplanation(data?.choices?.[0]?.message?.content || data?.explanation || 'No response');
+    if (DOM.explainStatus) DOM.explainStatus.textContent = '';
+    if (DOM.explainCopy) DOM.explainCopy.textContent = text;
+  } catch (err) {
+    if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed. Try again.';
   }
 };
 
@@ -768,6 +842,14 @@ const init = async () => {
     DOM.btnToggleExplain.textContent = collapsed ? 'Expand' : 'Collapse';
   });
   DOM.btnRetryExplain?.addEventListener('click', explainQuestion);
+  DOM.btnAskFollowup?.addEventListener('click', askFollowup);
+  document.querySelectorAll('.ai-mode-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.aiMode === 'detailed' ? 'detailed' : 'concise';
+      state.aiMode = mode;
+      document.querySelectorAll('.ai-mode-btn').forEach((b) => b.classList.toggle('active', b === btn));
+    });
+  });
   DOM.toggleTimed?.addEventListener('change', (e) => {
     state.practice.timed = e.target.checked;
     resetTimer();
