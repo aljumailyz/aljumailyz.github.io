@@ -101,15 +101,19 @@ const hideExplainOverlay = () => {
   if (DOM.explainOverlay) DOM.explainOverlay.classList.add('hidden');
 };
 
+const getPublicAIKey = () => window.__AI_PUBLIC_KEY || '';
+const getPublicAIModel = () => window.__AI_MODEL || '@preset/ai-explainer';
+
 const updateExplainAvailability = () => {
   const hasEndpoint = Boolean(getExplainEndpoint());
-  const disabled = !hasEndpoint;
+  const hasPublicKey = Boolean(getPublicAIKey());
+  const disabled = !(hasEndpoint || hasPublicKey);
   if (DOM.btnExplain) {
     DOM.btnExplain.classList.toggle('disabled', disabled);
     DOM.btnExplain.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     if (!state.explainLoading) DOM.btnExplain.textContent = disabled ? 'Explain (setup needed)' : 'Explain';
   }
-  if (DOM.aiHint) DOM.aiHint.textContent = hasEndpoint ? 'AI' : 'Set config.js';
+  if (DOM.aiHint) DOM.aiHint.textContent = hasEndpoint || hasPublicKey ? 'AI' : 'Set config.js';
 };
 
 const getExplainEndpoint = () => {
@@ -289,8 +293,9 @@ const renderPractice = () => {
 const explainQuestion = async () => {
   const { questions, current } = state.practice;
   const endpoint = getExplainEndpoint();
-  if (!endpoint) {
-    showExplainOverlay('Set Supabase URL in config.js to enable AI explanations.');
+  const publicKey = getPublicAIKey();
+  if (!endpoint && !publicKey) {
+    showExplainOverlay('Set Supabase URL or AI public key in config.js to enable AI explanations.');
     return;
   }
   if (!questions.length) return;
@@ -304,7 +309,7 @@ const explainQuestion = async () => {
     DOM.btnExplain.classList.add('disabled');
   }
   try {
-    if (supabaseAvailable()) {
+    if (endpoint && supabaseAvailable()) {
       const client = supabaseClient();
       const { data, error } = await client.functions.invoke('ai-explain', {
         body: { question: q.stem, answers, correctIndex },
@@ -318,18 +323,59 @@ const explainQuestion = async () => {
       if (DOM.explainCopy) DOM.explainCopy.textContent = text;
       return;
     }
-    const token = await getAccessToken();
-    if (!token) {
-      if (DOM.explainStatus) DOM.explainStatus.textContent = 'Sign in to use AI explanations.';
+    if (endpoint) {
+      const token = await getAccessToken();
+      if (!token) {
+        if (DOM.explainStatus) DOM.explainStatus.textContent = 'Sign in to use AI explanations.';
+        return;
+      }
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: q.stem, answers, correctIndex }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        if (DOM.explainStatus) DOM.explainStatus.textContent = `AI explain failed: ${errText || res.status}`;
+        return;
+      }
+      const data = await res.json();
+      const text = data?.explanation || 'No response';
+      if (DOM.explainStatus) DOM.explainStatus.textContent = '';
+      if (DOM.explainCopy) DOM.explainCopy.textContent = text;
       return;
     }
-    const res = await fetch(endpoint, {
+    if (!publicKey) {
+      if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed: no public key configured.';
+      return;
+    }
+    const model = getPublicAIModel();
+    const prompt = [
+      'You are a concise medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 180 words.',
+      `Question: ${q.stem}`,
+      'Answers:',
+      answers.map((a, i) => `${i + 1}. ${a}${i === correctIndex ? " (correct)" : ""}`).join('\n'),
+      'Return a concise teaching explanation and a short pathology summary.',
+    ].join('\n\n');
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${publicKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ question: q.stem, answers, correctIndex }),
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: 'You are a concise medical explainer for exam prep.' },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 600,
+        temperature: 0.2,
+        top_p: 0.9,
+      }),
     });
     if (!res.ok) {
       const errText = await res.text();
@@ -337,7 +383,7 @@ const explainQuestion = async () => {
       return;
     }
     const data = await res.json();
-    const text = data?.explanation || 'No response';
+    const text = data?.choices?.[0]?.message?.content || data?.explanation || 'No response';
     if (DOM.explainStatus) DOM.explainStatus.textContent = '';
     if (DOM.explainCopy) DOM.explainCopy.textContent = text;
   } catch (err) {
