@@ -93,9 +93,14 @@ const state = {
 };
 
 // Ensure Supabase email links return to a dedicated callback page on this domain (works for GH Pages paths).
-const basePath = window.location.pathname.endsWith('/')
-  ? window.location.pathname
-  : window.location.pathname.replace(/\\/[^/]*$/, '/');
+const basePath = (() => {
+  const { pathname } = window.location;
+  if (pathname.endsWith('/')) return pathname;
+  const parts = pathname.split('/');
+  parts.pop(); // remove file name if present
+  const joined = parts.join('/') || '';
+  return joined.endsWith('/') ? joined : `${joined}/`;
+})();
 const emailRedirectTo = `${window.location.origin}${basePath}auth-callback.html`;
 
 const sampleBanks = [
