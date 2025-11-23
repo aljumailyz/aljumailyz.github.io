@@ -31,6 +31,7 @@ const DOM = {
   menuSignout: document.getElementById('menu-signout'),
   menuInitials: document.getElementById('user-menu-initials'),
   menuEmail: document.getElementById('user-menu-email'),
+  menuSubscription: document.getElementById('dash-subscription'),
   profilePanel: document.getElementById('profile-panel'),
   profileFirst: document.getElementById('profile-first'),
   profileLast: document.getElementById('profile-last'),
@@ -147,6 +148,10 @@ const enforceAccess = () => {
     ? ''
     : 'This site stays alive through member subscriptions — 29.99 TL/month. Include your signup email in the payment reference and send the receipt to Zaid.';
   setDashStatus(message);
+  if (DOM.menuSubscription) {
+    DOM.menuSubscription.textContent = hasAccess ? 'Subscription active' : 'No subscription';
+    DOM.menuSubscription.className = `pill ${hasAccess ? 'tone-accent' : 'tone-soft'}`;
+  }
   if (!hasAccess) {
     DOM.btnStart?.setAttribute('disabled', 'disabled');
     DOM.bankSelect?.setAttribute('disabled', 'disabled');
