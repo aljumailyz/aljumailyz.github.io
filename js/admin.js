@@ -39,6 +39,7 @@ const DOM = {
   userActivity: document.getElementById('user-activity'),
   btnRefreshActivity: document.getElementById('btn-refresh-activity'),
   accessEmail: document.getElementById('access-email'),
+  accessDuration: document.getElementById('access-duration'),
   btnAddAccess: document.getElementById('btn-add-access'),
   accessList: document.getElementById('access-list'),
   historyList: document.getElementById('history-list'),
@@ -189,7 +190,7 @@ const loadUsers = async () => {
 const loadAccessGrants = async () => {
   const client = getClient();
   if (!client) return;
-  const { data, error } = await client.from('access_grants').select('email, allowed').order('email');
+  const { data, error } = await client.from('access_grants').select('email, allowed, expires_at').order('email');
   if (error) {
     setDashStatus('Access table missing (access_grants). Create it with email text, allowed boolean.');
     return;
@@ -197,6 +198,7 @@ const loadAccessGrants = async () => {
   state.accessGrants = (data || []).map((row) => ({
     email: (row.email || '').toLowerCase(),
     allowed: row.allowed !== false,
+    expiresAt: row.expires_at || null,
   }));
   renderAccessGrants();
 };
@@ -612,6 +614,7 @@ const renderAccessGrants = () => {
     DOM.accessList.innerHTML = '<p class="muted">No access grants found.</p>';
     return;
   }
+  const now = Date.now();
   DOM.accessList.innerHTML = state.accessGrants
     .map(
       (a) => `
@@ -619,6 +622,13 @@ const renderAccessGrants = () => {
         <div class="list-meta">
           <strong>${a.email}</strong>
           <span class="pill ${a.allowed ? 'tone-accent' : 'tone-soft'} small">${a.allowed ? 'Allowed' : 'Revoked'}</span>
+          ${
+            a.expiresAt
+              ? `<span class="pill ${new Date(a.expiresAt).getTime() > now ? 'tone-info' : 'tone-soft'} small">
+                  Expires ${new Date(a.expiresAt).toLocaleDateString()}
+                </span>`
+              : '<span class="pill tone-soft small">No expiry</span>'
+          }
         </div>
         <div class="list-actions">
           <button class="ghost small" data-action="toggle-access" data-email="${a.email}">
@@ -921,12 +931,14 @@ const handleAnswerInput = (event) => {
   if (action === 'answer-explanation') setAnswerField(idx, 'explanation', event.target.value);
 };
 
-const setAccess = async (email, allowed) => {
+const setAccess = async (email, allowed, expiresAt = null) => {
   if (!email) return;
   const client = getClient();
   if (!client) return;
   try {
-    const { error } = await client.from('access_grants').upsert({ email, allowed });
+    const payload = { email, allowed };
+    if (expiresAt) payload.expires_at = expiresAt;
+    const { error } = await client.from('access_grants').upsert(payload);
     if (error) {
       setDashStatus(`Access update failed: ${error.message}`);
       return;
@@ -965,11 +977,14 @@ const handleNewBank = () => {
 
 const handleAddAccess = async () => {
   const email = DOM.accessEmail?.value?.trim().toLowerCase();
+  const durationDays = Number(DOM.accessDuration?.value || 0);
   if (!email) {
     setDashStatus('Enter an email to grant access.');
     return;
   }
-  await setAccess(email, true);
+  const expiresAt =
+    durationDays > 0 ? new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString() : null;
+  await setAccess(email, true, expiresAt);
   if (DOM.accessEmail) DOM.accessEmail.value = '';
 };
 

@@ -145,7 +145,7 @@ const enforceAccess = () => {
   const hasAccess = email && allowed.includes(email);
   const message = hasAccess
     ? ''
-    : 'This website runs on your subscription payments — 29.99 TL/month. Include your signup email in the payment reference and send the receipt to Zaid.';
+    : 'This site stays alive through member subscriptions — 29.99 TL/month. Include your signup email in the payment reference and send the receipt to Zaid.';
   setDashStatus(message);
   if (!hasAccess) {
     DOM.btnStart?.setAttribute('disabled', 'disabled');
@@ -487,11 +487,16 @@ const loadAccessGrants = async () => {
   if (!supabaseAvailable()) return;
   try {
     const client = supabaseClient();
-    const { data, error } = await client.from('access_grants').select('email, allowed');
+    const { data, error } = await client.from('access_grants').select('email, allowed, expires_at');
     if (error) return;
+    const now = Date.now();
     state.access.allowed =
       data
-        ?.filter((row) => row.allowed !== false && row.email)
+        ?.filter((row) => {
+          if (row.allowed === false || !row.email) return false;
+          if (row.expires_at && new Date(row.expires_at).getTime() < now) return false;
+          return true;
+        })
         .map((row) => row.email.toLowerCase()) || [];
   } catch (err) {
     // ignore
