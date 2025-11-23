@@ -31,6 +31,8 @@ const DOM = {
   questionList: document.getElementById('question-list'),
   userSearch: document.getElementById('user-search'),
   userList: document.getElementById('user-list'),
+  userActivity: document.getElementById('user-activity'),
+  btnRefreshActivity: document.getElementById('btn-refresh-activity'),
   dashStatus: document.getElementById('dash-status'),
   importFile: document.getElementById('import-file'),
   btnImport: document.getElementById('btn-import'),
@@ -45,6 +47,7 @@ const state = {
   editingQuestionId: null,
   editingBankId: null,
   users: [],
+  userActivity: [],
 };
 
 const setDashStatus = (message = '') => {
@@ -132,12 +135,79 @@ const loadUsers = async () => {
   renderUsers();
 };
 
+const buildProfileMap = async () => {
+  const client = getClient();
+  if (!client) return {};
+  const tables = ['profiles', 'user_profiles'];
+  for (const table of tables) {
+    try {
+      const { data, error } = await client.from(table).select('id, email, first_name, last_name').limit(500);
+      if (error) continue;
+      const map = {};
+      (data || []).forEach((row) => {
+        const name = [row.first_name, row.last_name].filter(Boolean).join(' ').trim();
+        map[row.id] = { email: row.email || '', name };
+      });
+      return map;
+    } catch (err) {
+      continue;
+    }
+  }
+  return {};
+};
+
+const formatTimeAgo = (iso) => {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+};
+
+const loadUserActivity = async () => {
+  const client = getClient();
+  if (!client) return;
+  const profileMap = await buildProfileMap();
+  try {
+    const { data, error } = await client
+      .from('attempts')
+      .select('user_id, is_correct, created_at')
+      .order('created_at', { ascending: false })
+      .limit(25);
+    if (error) {
+      setDashStatus('User activity unavailable (attempts table not accessible).');
+      return;
+    }
+    state.userActivity =
+      data?.map((row) => {
+        const profile = profileMap[row.user_id] || {};
+        const email = profile.email || row.user_id;
+        const name = profile.name || '';
+        return {
+          userId: row.user_id,
+          email,
+          name,
+          isCorrect: row.is_correct,
+          createdAt: row.created_at,
+        };
+      }) || [];
+    renderUserActivity();
+  } catch (err) {
+    setDashStatus('User activity load failed.');
+  }
+};
+
 const refreshData = async () => {
   if (!state.user) return;
   setDashStatus('');
   await loadBanks();
   await loadQuestions();
   await loadUsers();
+  await loadUserActivity();
 };
 
 const normalizeYear = (yr) => {
@@ -370,6 +440,30 @@ const renderUsers = () => {
     .join('');
 };
 
+const renderUserActivity = () => {
+  if (!DOM.userActivity) return;
+  if (!state.userActivity.length) {
+    DOM.userActivity.innerHTML = '<p class="muted">No recent activity.</p>';
+    return;
+  }
+  DOM.userActivity.innerHTML = state.userActivity
+    .map(
+      (a) => `
+      <div class="list-item">
+        <div class="list-meta">
+          <strong>${a.email}</strong>
+          <span class="muted">${a.name || 'Name unavailable'}</span>
+        </div>
+        <div class="list-meta">
+          <span class="${a.isCorrect ? 'pill tone-accent small' : 'pill tone-soft small'}">${a.isCorrect ? 'Correct' : 'Incorrect'}</span>
+          <span class="muted">${formatTimeAgo(a.createdAt)}</span>
+        </div>
+      </div>
+    `,
+    )
+    .join('');
+};
+
 const setAuthUI = (message = '') => {
   let text = message;
   if (!text && state.user?.email) text = `Signed in as ${state.user.email}`;
@@ -582,6 +676,7 @@ const init = async () => {
   DOM.questionForm.answerCount?.addEventListener('change', (e) => setAnswerCount(Number(e.target.value)));
   DOM.btnImport?.addEventListener('click', handleImportClick);
   document.getElementById('btn-add-answer')?.addEventListener('click', addAnswer);
+  DOM.btnRefreshActivity?.addEventListener('click', loadUserActivity);
 
   // Question actions
   DOM.questionForm.btnSave?.addEventListener('click', saveQuestion);
