@@ -34,6 +34,10 @@ const DOM = {
   shortcutInline: document.getElementById('shortcut-inline'),
   shortcutSheet: document.getElementById('shortcut-sheet'),
   toastStack: document.getElementById('toast-stack'),
+  aiHint: document.getElementById('ai-hint'),
+  btnCopyExplain: document.getElementById('btn-copy-explain'),
+  btnToggleExplain: document.getElementById('btn-toggle-explain'),
+  btnRetryExplain: document.getElementById('btn-retry-explain'),
 };
 
 const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
@@ -87,7 +91,10 @@ const hideLoading = () => {
 const showExplainOverlay = (message = '') => {
   if (DOM.explainOverlay) DOM.explainOverlay.classList.remove('hidden');
   if (DOM.explainStatus) DOM.explainStatus.textContent = message || 'Requesting explanation…';
-  if (DOM.explainCopy) DOM.explainCopy.textContent = '';
+  if (DOM.explainCopy) {
+    DOM.explainCopy.textContent = '';
+    DOM.explainCopy.classList.remove('collapsed-text');
+  }
 };
 
 const hideExplainOverlay = () => {
@@ -279,6 +286,10 @@ const explainQuestion = async () => {
   const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
   state.explainLoading = true;
   showExplainOverlay('Requesting explanation…');
+  if (DOM.btnExplain) {
+    DOM.btnExplain.textContent = 'Explaining...';
+    DOM.btnExplain.classList.add('disabled');
+  }
   try {
     if (supabaseAvailable()) {
       const client = supabaseClient();
@@ -320,6 +331,10 @@ const explainQuestion = async () => {
     if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed. Try again.';
   } finally {
     state.explainLoading = false;
+    if (DOM.btnExplain) {
+      DOM.btnExplain.textContent = 'Explain';
+      DOM.btnExplain.classList.remove('disabled');
+    }
   }
 };
 
@@ -663,6 +678,11 @@ const handleKeyNav = (event) => {
     case 'Escape':
       toggleShortcutSheet(false);
       break;
+    case 'e':
+    case 'E':
+      event.preventDefault();
+      if (!state.explainLoading && DOM.btnExplain && !DOM.btnExplain.classList.contains('disabled')) explainQuestion();
+      break;
     default:
       if (event.key >= '1' && event.key <= '6') {
         if (sub.submitted) break;
@@ -692,6 +712,21 @@ const init = async () => {
   DOM.btnFlagQuestion?.addEventListener('click', toggleFlag);
   DOM.btnExplain?.addEventListener('click', explainQuestion);
   DOM.btnCloseExplain?.addEventListener('click', hideExplainOverlay);
+  DOM.btnCopyExplain?.addEventListener('click', async () => {
+    if (!DOM.explainCopy?.textContent) return;
+    try {
+      await navigator.clipboard.writeText(DOM.explainCopy.textContent);
+      showToast('Copied explanation.', 'success');
+    } catch (err) {
+      showToast('Copy failed.', 'error');
+    }
+  });
+  DOM.btnToggleExplain?.addEventListener('click', () => {
+    if (!DOM.explainCopy) return;
+    const collapsed = DOM.explainCopy.classList.toggle('collapsed-text');
+    DOM.btnToggleExplain.textContent = collapsed ? 'Expand' : 'Collapse';
+  });
+  DOM.btnRetryExplain?.addEventListener('click', explainQuestion);
   DOM.toggleTimed?.addEventListener('change', (e) => {
     state.practice.timed = e.target.checked;
     resetTimer();

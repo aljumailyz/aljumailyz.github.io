@@ -82,7 +82,7 @@
             <button class="ghost" id="btn-next-question">Next</button>
             <div class="explain-wrapper">
               <button class="ghost disabled" id="btn-explain" aria-disabled="true">Explain</button>
-              <span class="coming-soon">(coming soon)</span>
+              <span class="pill tone-soft small" id="ai-hint">AI</span>
             </div>
           </div>
           <p class="hint" id="practice-status"></p>
@@ -108,6 +108,11 @@
       <div class="modal-body">
         <p class="muted" id="explain-status">Requesting explanation…</p>
         <div class="ai-copy" id="explain-copy"></div>
+        <div class="actions ai-actions">
+          <button class="ghost small" id="btn-copy-explain">Copy</button>
+          <button class="ghost small" id="btn-toggle-explain">Collapse</button>
+          <button class="ghost small" id="btn-retry-explain">Retry</button>
+        </div>
       </div>
     </div>
   </div>
