@@ -6,5 +6,5 @@ window.__SUPABASE_CONFIG = {
 
 // Paid users allowlist (lowercase emails). Add/remove emails here to grant/revoke access.
 window.__PAID_USERS = [
-  'zaidusama2001@gmail.com', 'esma.mallek@hotmail.com', 'saraawniamira@gmail.com', 'abdullawaleed99@gmail.com', 'naaoja@gmail.com'
+  'zaidusama2001@gmail.com', 'esma.mallek@hotmail.com', 'saraawniamira@gmail.com', 'abdullawaleed99@gmail.com', 'naaoja@gmail.com', 'pendent-38.praises@icloud.com'
 ];
