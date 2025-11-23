@@ -8,6 +8,10 @@ const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
 const MODEL = "@preset/ai-explainer";
 const ORIGIN_ALLOW_ALL = "*";
 const TOKEN_LIMIT = 10000; // approx tokens per user per rolling hour
+const QUESTION_CHAR_LIMIT = 1200;
+const ANSWER_CHAR_LIMIT = 400;
+const MAX_ANSWERS = 6;
+const MAX_OUTPUT_TOKENS = 800;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ORIGIN_ALLOW_ALL,
@@ -28,7 +32,7 @@ const getSupabaseAdmin = () => {
   });
 };
 
-const estimateTokens = (question: string, answers: string[], expectedOutput = 800) => {
+const estimateTokens = (question: string, answers: string[], expectedOutput = MAX_OUTPUT_TOKENS) => {
   const inputChars = (question || "").length + answers.join(" ").length;
   const inputTokens = Math.ceil(inputChars / 4);
   return inputTokens + expectedOutput;
@@ -39,11 +43,16 @@ const rateLimit = async (admin: any, userId: string, tokens: number) => {
   const now = Date.now();
   const oneHourAgo = now - 60 * 60 * 1000;
 
-  const { data: usage } = await admin
+  const { data: usage, error: usageErr } = await admin
     .from("ai_usage")
     .select("tokens_used, window_start")
     .eq("user_id", userId)
     .maybeSingle();
+
+  if (usageErr) {
+    console.error("ai_usage read error", usageErr);
+    return { allowed: false, resetAt: null };
+  }
 
   let tokensUsed = 0;
   let windowStart = new Date(now).toISOString();
@@ -59,13 +68,25 @@ const rateLimit = async (admin: any, userId: string, tokens: number) => {
   }
 
   const newTotal = tokensUsed + tokens;
-  await admin.from("ai_usage").upsert({
+  const { error: upsertErr } = await admin.from("ai_usage").upsert({
     user_id: userId,
     window_start: windowStart,
     tokens_used: newTotal,
   });
+  if (upsertErr) {
+    console.error("ai_usage upsert error", upsertErr);
+    return { allowed: false, resetAt: null };
+  }
 
   return { allowed: true, resetAt: null };
+};
+
+const logEvent = async (admin: any, payload: Record<string, any>) => {
+  try {
+    await admin.from("ai_logs").insert(payload);
+  } catch (_err) {
+    // best-effort logging only
+  }
 };
 
 serve(async (req: Request) => {
@@ -101,6 +122,7 @@ serve(async (req: Request) => {
     return errorResponse("Unauthorized: invalid token", 401);
   }
   const userId = userData.user.id;
+  const startedAt = performance.now();
 
   let body: any;
   try {
@@ -110,11 +132,26 @@ serve(async (req: Request) => {
   }
 
   const { question, answers = [], correctIndex = 0 } = body || {};
-  if (!question || !Array.isArray(answers) || !answers.length) {
-    return errorResponse("Missing question or answers");
-  }
+  const answerStrings = Array.isArray(answers)
+    ? answers
+        .slice(0, MAX_ANSWERS)
+        .map((a) => (typeof a === "string" ? a : `${a ?? ""}`).trim())
+        .filter((a) => a.length > 0 && a.length <= ANSWER_CHAR_LIMIT)
+    : [];
 
-  const estimatedTokens = estimateTokens(question, answers, 800);
+  if (typeof question !== "string" || !question.trim()) {
+    return errorResponse("Missing question");
+  }
+  if (!Array.isArray(answers) || !answerStrings.length) {
+    return errorResponse("Missing answers");
+  }
+  if (question.length > QUESTION_CHAR_LIMIT) {
+    return errorResponse("Question too long");
+  }
+  const idx = Number.isInteger(correctIndex) ? correctIndex : 0;
+  const safeCorrectIndex = Math.min(Math.max(idx, 0), answerStrings.length - 1);
+
+  const estimatedTokens = estimateTokens(question, answerStrings, MAX_OUTPUT_TOKENS);
   const usageResult = await rateLimit(admin, userId, estimatedTokens);
   if (!usageResult.allowed) {
     const resetMsg = usageResult.resetAt
@@ -124,10 +161,10 @@ serve(async (req: Request) => {
   }
 
   const prompt = [
-    "Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology referenced.",
-    `Question: ${question}`,
+    "You are a concise medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 180 words.",
+    `Question: ${question.trim()}`,
     "Answers:",
-    answers.map((a: string, i: number) => `${i + 1}. ${a}${i === correctIndex ? " (correct)" : ""}`).join("\n"),
+    answerStrings.map((a: string, i: number) => `${i + 1}. ${a}${i === safeCorrectIndex ? " (correct)" : ""}`).join("\n"),
     "Return a concise teaching explanation and a short pathology summary.",
   ].join("\n\n");
 
@@ -139,18 +176,39 @@ serve(async (req: Request) => {
     },
     body: JSON.stringify({
       model: MODEL,
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 800,
+      messages: [
+        { role: "system", content: "You are a concise medical explainer for exam prep." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: MAX_OUTPUT_TOKENS,
+      temperature: 0.2,
+      top_p: 0.9,
+      user: userId,
     }),
   });
 
   if (!upstream.ok) {
     const errText = await upstream.text();
+    await logEvent(admin, {
+      user_id: userId,
+      status: "upstream_error",
+      tokens_est: estimatedTokens,
+      error: errText?.slice(0, 500) || String(upstream.status),
+      elapsed_ms: Math.round(performance.now() - startedAt),
+    });
     return errorResponse(`Upstream error: ${errText || upstream.status}`, 502);
   }
 
   const data = await upstream.json();
   const text = data?.choices?.[0]?.message?.content || "No response";
+
+  await logEvent(admin, {
+    user_id: userId,
+    status: "ok",
+    tokens_est: estimatedTokens,
+    elapsed_ms: Math.round(performance.now() - startedAt),
+    model: MODEL,
+  });
 
   return new Response(JSON.stringify({ explanation: text }), {
     headers: { "Content-Type": "application/json", ...corsHeaders },

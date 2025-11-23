@@ -107,6 +107,13 @@ const applyTheme = (theme) => {
 };
 applyTheme(getTheme());
 
+const getAccessToken = async () => {
+  if (!supabaseAvailable()) return null;
+  const client = supabaseClient();
+  const { data } = await client.auth.getSession();
+  return data?.session?.access_token || null;
+};
+
 const setDensity = (mode = 'comfortable') => {
   const compact = mode === 'compact';
   document.body.classList.toggle('compact', compact);
@@ -287,9 +294,17 @@ const explainQuestion = async () => {
       if (DOM.explainCopy) DOM.explainCopy.textContent = text;
       return;
     }
+    const token = await getAccessToken();
+    if (!token) {
+      if (DOM.explainStatus) DOM.explainStatus.textContent = 'Sign in to use AI explanations.';
+      return;
+    }
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ question: q.stem, answers, correctIndex }),
     });
     if (!res.ok) {
