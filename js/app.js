@@ -355,7 +355,7 @@ const renderBanks = () => {
   const rows = sorted
     .map(
       (b) => `
-        <tr class="${selected.has(b.id) ? 'selected' : ''}">
+        <tr class="${selected.has(b.id) ? 'selected' : ''}" data-bank-row="${b.id}">
           <td><input type="checkbox" data-bank-id="${b.id}" ${selected.has(b.id) ? 'checked' : ''}></td>
           <td>
             <div class="bank-pill">

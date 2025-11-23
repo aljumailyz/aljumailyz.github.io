@@ -269,13 +269,17 @@ const loadUsers = async () => {
     return;
   }
   state.users =
-    data?.map((u) => ({
-      email: u.user_id,
-      name: profileMap[u.user_id] || profileMap[u.user_id?.toLowerCase?.()]?.name || '',
-      accuracy: Math.round(u.accuracy || 0),
-      answered: u.answered || 0,
-      time: u.time || 0,
-    })) || [];
+    data?.map((u) => {
+      const key = u.user_id || '';
+      const profile = profileMap[key] || profileMap[key.toLowerCase?.()] || {};
+      return {
+        email: u.user_id,
+        name: profile?.name ? String(profile.name) : '',
+        accuracy: Math.round(u.accuracy || 0),
+        answered: u.answered || 0,
+        time: u.time || 0,
+      };
+    }) || [];
   renderUsers();
   updateCounts();
 };
@@ -307,7 +311,7 @@ const buildProfileMap = async () => {
       if (error) continue;
       const map = {};
       (data || []).forEach((row) => {
-        const name = [row.first_name, row.last_name].filter(Boolean).join(' ').trim();
+        const name = [row.first_name, row.last_name].filter(Boolean).join(' ').trim() || (row.email || '');
         const email = (row.email || '').toLowerCase();
         const entry = { email, name };
         const identifiers = [row.id, row.email, email].filter(Boolean);
@@ -726,8 +730,8 @@ const renderUsers = () => {
   if (!DOM.userList) return;
   const query = DOM.userSearch?.value?.toLowerCase() || '';
   const filtered = state.users.filter((u) => {
-    const name = (u.name || '').toLowerCase();
-    const email = (u.email || '').toLowerCase();
+    const name = `${u.name || ''}`.toLowerCase();
+    const email = `${u.email || ''}`.toLowerCase();
     return !query || email.includes(query) || name.includes(query);
   });
   if (!filtered.length) {
