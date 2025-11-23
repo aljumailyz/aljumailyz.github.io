@@ -794,9 +794,10 @@ button.full {
 
 .bank-table th,
 .bank-table td {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border);
   text-align: left;
+  font-size: 14px;
 }
 
 .bank-table tr:last-child td {
@@ -808,6 +809,21 @@ button.full {
 }
 [data-theme='dark'] .bank-table tr.selected {
   background: rgba(88, 166, 255, 0.1);
+}
+
+.bank-table.compact th,
+.bank-table.compact td {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.bank-table.compact strong {
+  font-size: 14px;
+}
+
+.bank-table.compact .pill {
+  padding: 4px 6px;
+  font-size: 12px;
 }
 
 .bank-pill {
