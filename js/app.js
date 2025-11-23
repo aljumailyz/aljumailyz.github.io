@@ -381,7 +381,11 @@ const auth = async (mode) => {
       setAuthUI(error.message);
     } else {
       state.user = data.user || data.session?.user || null;
-      setAuthUI(mode === 'signup' ? 'Check your email to confirm.' : 'Signed in.');
+      if (mode === 'signup') {
+        setAuthUI('Almost there! Check your inbox and click the verification link to activate your account.');
+      } else {
+        setAuthUI('Signed in.');
+      }
       enforceAccess();
     }
   } catch (err) {
