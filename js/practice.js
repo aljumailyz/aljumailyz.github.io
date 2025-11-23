@@ -107,15 +107,14 @@ let cachedAIKey = null;
 let cachedAIModel = null;
 
 const updateExplainAvailability = () => {
-  const hasEndpoint = Boolean(getExplainEndpoint());
   const hasRemoteKey = Boolean(cachedAIKey);
-  const disabled = !(hasEndpoint || hasRemoteKey);
+  const disabled = !hasRemoteKey;
   if (DOM.btnExplain) {
     DOM.btnExplain.classList.toggle('disabled', disabled);
     DOM.btnExplain.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     if (!state.explainLoading) DOM.btnExplain.textContent = disabled ? 'Explain (setup needed)' : 'Explain';
   }
-  if (DOM.aiHint) DOM.aiHint.textContent = hasEndpoint || hasRemoteKey ? 'AI' : 'Set config.js';
+  if (DOM.aiHint) DOM.aiHint.textContent = hasRemoteKey ? 'AI' : 'Set config.js';
 };
 
 const fetchAIKeyFromSupabase = async () => {
@@ -311,10 +310,9 @@ const renderPractice = () => {
 
 const explainQuestion = async () => {
   const { questions, current } = state.practice;
-  const endpoint = getExplainEndpoint();
   const { key: publicKey, model: publicModel } = await fetchAIKeyFromSupabase();
-  if (!endpoint && !publicKey) {
-    showExplainOverlay('Set Supabase URL or AI key (in Supabase table ai_keys or config.js) to enable AI explanations.');
+  if (!publicKey) {
+    showExplainOverlay('No AI key available. Add a key to Supabase table ai_keys (id=public).');
     return;
   }
   if (!questions.length) return;
@@ -328,49 +326,6 @@ const explainQuestion = async () => {
     DOM.btnExplain.classList.add('disabled');
   }
   try {
-    if (endpoint && supabaseAvailable()) {
-      const client = supabaseClient();
-      const { data, error } = await client.functions.invoke('ai-explain', {
-        body: { question: q.stem, answers, correctIndex },
-      });
-      if (error) {
-        if (DOM.explainStatus) DOM.explainStatus.textContent = `AI explain failed: ${error.message}`;
-        return;
-      }
-      const text = data?.explanation || 'No response';
-      if (DOM.explainStatus) DOM.explainStatus.textContent = '';
-      if (DOM.explainCopy) DOM.explainCopy.textContent = text;
-      return;
-    }
-    if (endpoint) {
-      const token = await getAccessToken();
-      if (!token) {
-        if (DOM.explainStatus) DOM.explainStatus.textContent = 'Sign in to use AI explanations.';
-        return;
-      }
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ question: q.stem, answers, correctIndex }),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        if (DOM.explainStatus) DOM.explainStatus.textContent = `AI explain failed: ${errText || res.status}`;
-        return;
-      }
-      const data = await res.json();
-      const text = data?.explanation || 'No response';
-      if (DOM.explainStatus) DOM.explainStatus.textContent = '';
-      if (DOM.explainCopy) DOM.explainCopy.textContent = text;
-      return;
-    }
-    if (!publicKey) {
-      if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed: no public key configured.';
-      return;
-    }
     const model = publicModel || getPublicAIModel();
     const prompt = [
       'You are a concise medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 180 words.',
