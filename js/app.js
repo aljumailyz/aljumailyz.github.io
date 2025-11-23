@@ -71,6 +71,9 @@ const state = {
     answered: 0,
     time: 0,
   },
+  access: {
+    allowed: [],
+  },
   banksLoading: false,
   practice: {
     bankName: '',
@@ -102,6 +105,10 @@ const stateBanks = {
 };
 
 const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
+const getAllowedEmails = () => {
+  const dynamic = state.access?.allowed || [];
+  return Array.from(new Set([...paidUsers, ...dynamic]));
+};
 
 // Fisher-Yates shuffle
 const shuffleArray = (arr = []) => {
@@ -123,7 +130,8 @@ const setDashStatus = (message = '') => {
 
 const enforceAccess = () => {
   const email = state.user?.email?.toLowerCase() || '';
-  const hasAccess = email && paidUsers.includes(email);
+  const allowed = getAllowedEmails();
+  const hasAccess = email && allowed.includes(email);
   const message = hasAccess ? '' : 'Please contact Zaid to enable access.';
   setDashStatus(message);
   if (!hasAccess) {
@@ -204,6 +212,7 @@ const loadBanks = async () => {
     hideLoading();
     return;
   }
+  loadAccessGrants(); // warm access list alongside banks
   const { data, error } = await client.from('banks').select('id, name, year').order('created_at', { ascending: false });
   if (error || !data?.length) {
     stateBanks.banks = sampleBanks;
@@ -338,6 +347,7 @@ const checkSession = async () => {
     state.user = data.session.user;
     setAuthUI('');
     await loadStats();
+    await loadAccessGrants();
     enforceAccess();
     hydrateProfileForm();
   }
@@ -346,6 +356,7 @@ const checkSession = async () => {
     setAuthUI('');
     loadStats();
     if (session?.user) {
+      loadAccessGrants();
       enforceAccess();
       hydrateProfileForm();
     }
@@ -395,6 +406,21 @@ const loadStats = async () => {
   state.stats.time = data.time || 0;
   refreshStats();
   hydrateProfileForm();
+};
+
+const loadAccessGrants = async () => {
+  if (!supabaseAvailable()) return;
+  try {
+    const client = supabaseClient();
+    const { data, error } = await client.from('access_grants').select('email, allowed');
+    if (error) return;
+    state.access.allowed =
+      data
+        ?.filter((row) => row.allowed !== false && row.email)
+        .map((row) => row.email.toLowerCase()) || [];
+  } catch (err) {
+    // ignore
+  }
 };
 
 const refreshStats = () => {

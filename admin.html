@@ -103,12 +103,40 @@
       <div class="panel">
         <div class="panel-head">
           <div>
+            <p class="overline">Access control</p>
+            <p class="card-title">Allow / revoke users</p>
+          </div>
+          <div class="head-actions">
+            <input class="small" id="access-email" placeholder="user@school.edu" />
+            <button class="primary small" id="btn-add-access">Grant access</button>
+          </div>
+        </div>
+        <p class="hint">Requires Supabase table <code>access_grants</code> with columns: email (text), allowed (boolean, default true).</p>
+        <div id="access-list" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
             <p class="overline">User activity</p>
             <p class="card-title">Recent attempts</p>
           </div>
           <button class="ghost small" id="btn-refresh-activity">Refresh</button>
         </div>
         <div id="user-activity" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="overline">History</p>
+            <p class="card-title">Recent edits</p>
+          </div>
+          <div class="head-actions">
+            <button class="ghost small" id="btn-clear-history">Clear</button>
+          </div>
+        </div>
+        <div id="history-list" class="list"></div>
       </div>
 
         <div class="panel">

@@ -33,6 +33,11 @@ const DOM = {
   userList: document.getElementById('user-list'),
   userActivity: document.getElementById('user-activity'),
   btnRefreshActivity: document.getElementById('btn-refresh-activity'),
+  accessEmail: document.getElementById('access-email'),
+  btnAddAccess: document.getElementById('btn-add-access'),
+  accessList: document.getElementById('access-list'),
+  historyList: document.getElementById('history-list'),
+  btnClearHistory: document.getElementById('btn-clear-history'),
   dashStatus: document.getElementById('dash-status'),
   importFile: document.getElementById('import-file'),
   btnImport: document.getElementById('btn-import'),
@@ -48,6 +53,8 @@ const state = {
   editingBankId: null,
   users: [],
   userActivity: [],
+  history: [],
+  accessGrants: [],
 };
 
 const setDashStatus = (message = '') => {
@@ -60,6 +67,38 @@ const setQuestionStatus = (message = '') => {
 
 const setImportStatus = (message = '') => {
   if (DOM.importStatus) DOM.importStatus.textContent = message;
+};
+
+const loadHistory = () => {
+  try {
+    const raw = localStorage.getItem('examforge.admin.history');
+    if (!raw) return [];
+    return JSON.parse(raw) || [];
+  } catch (err) {
+    return [];
+  }
+};
+
+const persistHistory = () => {
+  try {
+    localStorage.setItem('examforge.admin.history', JSON.stringify(state.history.slice(0, 30)));
+  } catch (err) {
+    // ignore
+  }
+};
+
+const addHistoryEntry = ({ id, stem, bankId, action }) => {
+  const entry = {
+    id,
+    stem: stem || '',
+    bankId: bankId || '',
+    action: action || 'Updated',
+    at: new Date().toISOString(),
+    by: state.user?.email || '',
+  };
+  state.history = [entry, ...state.history].slice(0, 30);
+  persistHistory();
+  renderHistory();
 };
 
 const getClient = () => {
@@ -135,6 +174,21 @@ const loadUsers = async () => {
   renderUsers();
 };
 
+const loadAccessGrants = async () => {
+  const client = getClient();
+  if (!client) return;
+  const { data, error } = await client.from('access_grants').select('email, allowed').order('email');
+  if (error) {
+    setDashStatus('Access table missing (access_grants). Create it with email text, allowed boolean.');
+    return;
+  }
+  state.accessGrants = (data || []).map((row) => ({
+    email: (row.email || '').toLowerCase(),
+    allowed: row.allowed !== false,
+  }));
+  renderAccessGrants();
+};
+
 const buildProfileMap = async () => {
   const client = getClient();
   if (!client) return {};
@@ -208,6 +262,13 @@ const refreshData = async () => {
   await loadQuestions();
   await loadUsers();
   await loadUserActivity();
+  await loadAccessGrants();
+};
+
+const clearHistory = () => {
+  state.history = [];
+  persistHistory();
+  renderHistory();
 };
 
 const normalizeYear = (yr) => {
@@ -362,26 +423,54 @@ const resetQuestionForm = () => {
   setQuestionStatus('');
 };
 
+const validateAnswers = (answers = []) => {
+  const errors = [];
+  const cleaned = (answers || []).map((a) => ({
+    text: (a.text || '').trim(),
+    explanation: (a.explanation || '').trim(),
+    isCorrect: Boolean(a.isCorrect),
+  }));
+  if (cleaned.length < 2) errors.push('At least 2 answers required.');
+  if (!cleaned.some((a) => a.isCorrect)) errors.push('Mark one answer as correct.');
+  cleaned.forEach((a, idx) => {
+    if (!a.text) errors.push(`Answer ${String.fromCharCode(65 + idx)} is empty.`);
+  });
+  return { cleaned, errors };
+};
+
 const saveQuestion = async () => {
-  if (!DOM.questionForm.bank?.value || !DOM.questionForm.stem?.value) {
-    setQuestionStatus('Bank and stem are required.');
+  const bankId = DOM.questionForm.bank?.value;
+  const stem = DOM.questionForm.stem?.value?.trim();
+  const topic = DOM.questionForm.topic?.value?.trim();
+  const imageUrl = DOM.questionForm.image?.value?.trim();
+  const { cleaned: answers, errors } = validateAnswers(state.answers);
+  if (!bankId) errors.push('Bank is required.');
+  if (!stem) errors.push('Stem is required.');
+  if (errors.length) {
+    setQuestionStatus(errors.join(' '));
     return;
   }
   const client = getClient();
   if (!client) return;
   const payload = {
-    bank_id: DOM.questionForm.bank.value,
-    topic: DOM.questionForm.topic.value,
-    stem: DOM.questionForm.stem.value,
-    image_url: DOM.questionForm.image.value,
-    answers: state.answers,
+    bank_id: bankId,
+    topic,
+    stem,
+    image_url: imageUrl,
+    answers,
   };
   if (state.editingQuestionId) payload.id = state.editingQuestionId;
-  const { error } = await client.from('questions').upsert(payload);
+  const { data, error } = await client.from('questions').upsert(payload).select().maybeSingle();
   if (error) {
     setQuestionStatus(`Save failed: ${error.message}`);
     return;
   }
+  addHistoryEntry({
+    id: data?.id || state.editingQuestionId || 'new',
+    stem: stem.slice(0, 120),
+    bankId,
+    action: state.editingQuestionId ? 'Updated' : 'Created',
+  });
   setQuestionStatus('Saved to Supabase.');
   state.editingQuestionId = null;
   resetQuestionForm();
@@ -440,6 +529,31 @@ const renderUsers = () => {
     .join('');
 };
 
+const renderAccessGrants = () => {
+  if (!DOM.accessList) return;
+  if (!state.accessGrants.length) {
+    DOM.accessList.innerHTML = '<p class="muted">No access grants found.</p>';
+    return;
+  }
+  DOM.accessList.innerHTML = state.accessGrants
+    .map(
+      (a) => `
+      <div class="list-item">
+        <div class="list-meta">
+          <strong>${a.email}</strong>
+          <span class="pill ${a.allowed ? 'tone-accent' : 'tone-soft'} small">${a.allowed ? 'Allowed' : 'Revoked'}</span>
+        </div>
+        <div class="list-actions">
+          <button class="ghost small" data-action="toggle-access" data-email="${a.email}">
+            ${a.allowed ? 'Revoke' : 'Allow'}
+          </button>
+        </div>
+      </div>
+    `,
+    )
+    .join('');
+};
+
 const renderUserActivity = () => {
   if (!DOM.userActivity) return;
   if (!state.userActivity.length) {
@@ -457,6 +571,30 @@ const renderUserActivity = () => {
         <div class="list-meta">
           <span class="${a.isCorrect ? 'pill tone-accent small' : 'pill tone-soft small'}">${a.isCorrect ? 'Correct' : 'Incorrect'}</span>
           <span class="muted">${formatTimeAgo(a.createdAt)}</span>
+        </div>
+      </div>
+    `,
+    )
+    .join('');
+};
+
+const renderHistory = () => {
+  if (!DOM.historyList) return;
+  if (!state.history.length) {
+    DOM.historyList.innerHTML = '<p class="muted">No recent edits yet.</p>';
+    return;
+  }
+  DOM.historyList.innerHTML = state.history
+    .map(
+      (h) => `
+      <div class="list-item">
+        <div class="list-meta">
+          <strong>${h.action}</strong>
+          <span class="muted">${h.bankId || 'No bank'} · ${formatTimeAgo(h.at)}</span>
+        </div>
+        <div class="list-meta">
+          <span class="muted">${h.stem || 'No stem'}</span>
+          ${h.by ? `<span class="pill tone-soft small">${h.by}</span>` : ''}
         </div>
       </div>
     `,
@@ -513,6 +651,18 @@ const parseExamJSON = (raw) => {
   return { bank: { name: raw.bank.name, description: raw.bank.description || '' }, questions };
 };
 
+const validateExam = (exam) => {
+  const errors = [];
+  if (!exam?.bank?.name) errors.push('Bank name missing.');
+  (exam.questions || []).forEach((q, idx) => {
+    const stem = (q.stem || '').trim();
+    if (!stem) errors.push(`Q${idx + 1}: stem is required.`);
+    const { errors: answerErrors } = validateAnswers(q.answers || []);
+    answerErrors.forEach((e) => errors.push(`Q${idx + 1}: ${e}`));
+  });
+  return errors;
+};
+
 const importExam = async (exam) => {
   const client = getClient();
   if (!client) return;
@@ -545,8 +695,19 @@ const handleImportClick = async () => {
   try {
     const text = await file.text();
     const parsed = parseExamJSON(parseJSONWithCleanup(text));
+    const validationErrors = validateExam(parsed);
+    if (validationErrors.length) {
+      setImportStatus(`Import blocked: ${validationErrors.slice(0, 4).join(' ')}`);
+      return;
+    }
     setImportStatus('Importing to Supabase...');
     await importExam(parsed);
+    addHistoryEntry({
+      id: parsed.bank.name,
+      stem: `Imported ${parsed.questions.length} questions`,
+      bankId: parsed.bank.name,
+      action: 'Imported',
+    });
   } catch (err) {
     setImportStatus(`Import failed: ${err.message}`);
   }
@@ -618,11 +779,17 @@ const handleListClick = async (event) => {
     if (!q) return;
     state.editingQuestionId = id;
     if (DOM.questionForm.bank) DOM.questionForm.bank.value = q.bankId;
-    if (DOM.questionForm.topic) DOM.questionForm.topic.value = q.topic;
-    if (DOM.questionForm.stem) DOM.questionForm.stem.value = q.stem;
+    if (DOM.questionForm.topic) DOM.questionForm.topic.value = q.topic || '';
+    if (DOM.questionForm.stem) DOM.questionForm.stem.value = q.stem || '';
     if (DOM.questionForm.image) DOM.questionForm.image.value = q.imageUrl || '';
     state.answers = q.answers.map((a) => ({ ...a }));
     setAnswerCount(state.answers.length || 1);
+    setQuestionStatus(`Editing question in ${q.bankId}`);
+  }
+  if (action === 'toggle-access') {
+    const email = (event.target.dataset.email || '').toLowerCase();
+    const current = state.accessGrants.find((a) => a.email === email);
+    await setAccess(email, !(current?.allowed));
   }
 };
 
@@ -632,6 +799,23 @@ const handleAnswerInput = (event) => {
   const idx = Number(event.target.dataset.idx);
   if (action === 'answer-text') setAnswerField(idx, 'text', event.target.value);
   if (action === 'answer-explanation') setAnswerField(idx, 'explanation', event.target.value);
+};
+
+const setAccess = async (email, allowed) => {
+  if (!email) return;
+  const client = getClient();
+  if (!client) return;
+  try {
+    const { error } = await client.from('access_grants').upsert({ email, allowed });
+    if (error) {
+      setDashStatus(`Access update failed: ${error.message}`);
+      return;
+    }
+    setDashStatus(`Access ${allowed ? 'granted' : 'revoked'} for ${email}.`);
+    await loadAccessGrants();
+  } catch (err) {
+    setDashStatus('Access update failed.');
+  }
 };
 
 const handleBankEdit = (bank) => {
@@ -657,6 +841,16 @@ const handleNewBank = () => {
   DOM.bankNameInput?.focus();
 };
 
+const handleAddAccess = async () => {
+  const email = DOM.accessEmail?.value?.trim().toLowerCase();
+  if (!email) {
+    setDashStatus('Enter an email to grant access.');
+    return;
+  }
+  await setAccess(email, true);
+  if (DOM.accessEmail) DOM.accessEmail.value = '';
+};
+
 const init = async () => {
   // Render base UI
   renderBanks();
@@ -664,6 +858,8 @@ const init = async () => {
   resetQuestionForm();
   renderUsers();
   renderQuestions();
+  state.history = loadHistory();
+  renderHistory();
 
   // Auth actions
   DOM.btnSignin?.addEventListener('click', signIn);
@@ -677,6 +873,8 @@ const init = async () => {
   DOM.btnImport?.addEventListener('click', handleImportClick);
   document.getElementById('btn-add-answer')?.addEventListener('click', addAnswer);
   DOM.btnRefreshActivity?.addEventListener('click', loadUserActivity);
+  DOM.btnClearHistory?.addEventListener('click', clearHistory);
+  DOM.btnAddAccess?.addEventListener('click', handleAddAccess);
 
   // Question actions
   DOM.questionForm.btnSave?.addEventListener('click', saveQuestion);
