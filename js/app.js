@@ -92,8 +92,11 @@ const state = {
   },
 };
 
-// Ensure Supabase email links return to the current domain (e.g., GitHub Pages).
-const emailRedirectTo = `${window.location.origin}${window.location.pathname}`;
+// Ensure Supabase email links return to a dedicated callback page on this domain (works for GH Pages paths).
+const basePath = window.location.pathname.endsWith('/')
+  ? window.location.pathname
+  : window.location.pathname.replace(/\\/[^/]*$/, '/');
+const emailRedirectTo = `${window.location.origin}${basePath}auth-callback.html`;
 
 const sampleBanks = [
   { id: 'sample-year1', name: 'Year 1 – Foundations', questions: 20, year: 'Year 1' },
