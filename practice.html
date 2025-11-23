@@ -62,6 +62,7 @@
             <button class="flag-button" id="btn-flag-question" aria-pressed="false">⚑ Flag</button>
             <button class="primary" id="btn-submit-question">Submit</button>
             <button class="ghost" id="btn-next-question">Next</button>
+            <button class="ghost" id="btn-explain">Explain</button>
           </div>
           <p class="hint" id="practice-status"></p>
         </div>
@@ -74,6 +75,19 @@
     <div class="loading-card">
       <div class="spinner"></div>
       <p id="loading-text">Loading…</p>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="explain-overlay">
+    <div class="modal-card">
+      <div class="modal-head">
+        <p class="overline">AI Explanation</p>
+        <button class="ghost small" id="btn-close-explain">Close</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted" id="explain-status">Requesting explanation…</p>
+        <div class="ai-copy" id="explain-copy"></div>
+      </div>
     </div>
   </div>
 </body>

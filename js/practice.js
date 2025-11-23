@@ -14,6 +14,11 @@ const DOM = {
   btnNextQuestion: document.getElementById('btn-next-question'),
   btnFinishQuiz: document.getElementById('btn-finish-quiz'),
   btnFlagQuestion: document.getElementById('btn-flag-question'),
+  btnExplain: document.getElementById('btn-explain'),
+  explainOverlay: document.getElementById('explain-overlay'),
+  explainStatus: document.getElementById('explain-status'),
+  explainCopy: document.getElementById('explain-copy'),
+  btnCloseExplain: document.getElementById('btn-close-explain'),
   toggleTimed: document.getElementById('toggle-timed'),
   timerDisplay: document.getElementById('timer-display'),
   loadingOverlay: document.getElementById('loading-overlay'),
@@ -36,6 +41,7 @@ const state = {
     timer: { duration: 30, remaining: 30, handle: null },
     startedAt: null,
   },
+  explainLoading: false,
 };
 
 const shuffleArray = (arr = []) => {
@@ -58,6 +64,22 @@ const showLoading = (message = 'Loading…') => {
 
 const hideLoading = () => {
   DOM.loadingOverlay?.classList.add('hidden');
+};
+
+const showExplainOverlay = (message = '') => {
+  if (DOM.explainOverlay) DOM.explainOverlay.classList.remove('hidden');
+  if (DOM.explainStatus) DOM.explainStatus.textContent = message || 'Requesting explanation…';
+  if (DOM.explainCopy) DOM.explainCopy.textContent = '';
+};
+
+const hideExplainOverlay = () => {
+  if (DOM.explainOverlay) DOM.explainOverlay.classList.add('hidden');
+};
+
+const getExplainEndpoint = () => {
+  const base = window.__SUPABASE_CONFIG?.supabaseUrl?.replace(/\/$/, '');
+  if (!base) return null;
+  return `${base}/functions/v1/ai-explain`;
 };
 
 const getTheme = () => localStorage.getItem('examforge.theme') || 'light';
@@ -153,6 +175,41 @@ const renderPractice = () => {
     DOM.btnFlagQuestion.classList.toggle('active', submission.flagged);
     DOM.btnFlagQuestion.setAttribute('aria-pressed', submission.flagged ? 'true' : 'false');
     DOM.btnFlagQuestion.textContent = submission.flagged ? '⚑ Flagged' : '⚑ Flag';
+  }
+};
+
+const explainQuestion = async () => {
+  const { questions, current } = state.practice;
+  const endpoint = getExplainEndpoint();
+  if (!endpoint) {
+    showExplainOverlay('Set Supabase URL in config.js to enable AI explanations.');
+    return;
+  }
+  if (!questions.length) return;
+  const q = questions[current];
+  const answers = q.answers?.map((a) => a.text || '') || [];
+  const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
+  state.explainLoading = true;
+  showExplainOverlay('Requesting explanation…');
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q.stem, answers, correctIndex }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      if (DOM.explainStatus) DOM.explainStatus.textContent = `AI explain failed: ${errText || res.status}`;
+      return;
+    }
+    const data = await res.json();
+    const text = data?.explanation || 'No response';
+    if (DOM.explainStatus) DOM.explainStatus.textContent = '';
+    if (DOM.explainCopy) DOM.explainCopy.textContent = text;
+  } catch (err) {
+    if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed. Try again.';
+  } finally {
+    state.explainLoading = false;
   }
 };
 
@@ -401,6 +458,8 @@ const init = async () => {
   DOM.practiceNav?.addEventListener('click', handleNavClick);
   DOM.btnFinishQuiz?.addEventListener('click', finishQuiz);
   DOM.btnFlagQuestion?.addEventListener('click', toggleFlag);
+  DOM.btnExplain?.addEventListener('click', explainQuestion);
+  DOM.btnCloseExplain?.addEventListener('click', hideExplainOverlay);
   DOM.toggleTimed?.addEventListener('change', (e) => {
     state.practice.timed = e.target.checked;
     resetTimer();
