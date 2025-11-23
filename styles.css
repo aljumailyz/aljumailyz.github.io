@@ -1520,8 +1520,8 @@ textarea {
 .ai-mode {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .followup-box {
@@ -1552,11 +1552,11 @@ textarea {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 1px solid var(--border);
-  padding: 8px;
-  border-radius: var(--r-sm);
-  background: #f9fbff;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f5f8fc;
 }
 [data-theme='dark'] .history-item {
   background: #1a2741;
@@ -1566,6 +1566,26 @@ textarea {
 .history-item span {
   font-size: 13px;
   color: var(--muted);
+}
+
+.ai-actions {
+  gap: 6px;
+}
+
+.ai-actions button,
+.followup-suggestions button,
+#btn-ask-followup,
+#btn-ai-mode {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+[data-theme='dark'] .ai-actions button,
+[data-theme='dark'] .followup-suggestions button,
+[data-theme='dark'] #btn-ask-followup,
+[data-theme='dark'] #btn-ai-mode {
+  border-color: #30456a;
 }
 
 .ai-abbr {
