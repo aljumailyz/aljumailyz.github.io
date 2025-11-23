@@ -40,10 +40,17 @@ const DOM = {
   btnRetryExplain: document.getElementById('btn-retry-explain'),
   followupInput: document.getElementById('followup-input'),
   btnAskFollowup: document.getElementById('btn-ask-followup'),
+  btnAIMode: document.getElementById('btn-ai-mode'),
+  aiLoader: document.getElementById('ai-loader'),
+  aiModeBadge: document.getElementById('ai-mode-badge'),
+  followupSuggestions: document.getElementById('followup-suggestions'),
+  explainHistory: document.getElementById('explain-history'),
 };
 
 const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
 const DENSITY_STORAGE_KEY = 'examforge.practice.density';
+
+const AI_MODE_KEY = 'examforge.ai.mode';
 
 const state = {
   user: null,
@@ -67,6 +74,7 @@ const state = {
   },
   explainLoading: false,
   aiMode: 'concise',
+  explainHistory: [],
 };
 
 const shuffleArray = (arr = []) => {
@@ -116,16 +124,21 @@ const sanitizeModel = (model) => {
   return first || DEFAULT_MODEL;
 };
 
+const escapeHtml = (text) =>
+  `${text}`.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 const formatExplanation = (text) => {
   if (!text) return '';
   // Strip common markdown emphasis/backticks and normalize bullets.
-  return text
+  const cleaned = text
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/\*(.*?)\*/g, '$1')
     .replace(/__(.*?)__/g, '$1')
     .replace(/`([^`]*)`/g, '$1')
     .replace(/^- /gm, '• ')
     .trim();
+  const safe = escapeHtml(cleaned);
+  return safe.replace(/\(([A-Z]{2,6})\)/g, '(<span class="ai-abbr">$1</span>)');
 };
 
 const buildPrompt = (stem, answers, correctIndex, followUp = '', wordLimit = 180) => {
@@ -139,6 +152,78 @@ const buildPrompt = (stem, answers, correctIndex, followUp = '', wordLimit = 180
   ]
     .filter(Boolean)
     .join('\n\n');
+};
+
+const addHistoryEntry = (stem, mode, text) => {
+  const entry = {
+    id: `${Date.now()}`,
+    stem: stem.slice(0, 80),
+    mode,
+    text,
+    at: new Date().toLocaleTimeString(),
+  };
+  state.explainHistory = [entry, ...state.explainHistory].slice(0, 5);
+  renderExplainHistory();
+};
+
+const renderExplainHistory = () => {
+  if (!DOM.explainHistory) return;
+  if (!state.explainHistory.length) {
+    DOM.explainHistory.innerHTML = '<p class="muted">No recent explanations.</p>';
+    return;
+  }
+  DOM.explainHistory.innerHTML = state.explainHistory
+    .map(
+      (h) => `
+        <div class="history-item">
+          <div>
+            <strong>${h.mode === 'detailed' ? 'Detailed' : 'Concise'}</strong>
+            <span>${h.at}</span><br>
+            <span>${h.stem}</span>
+          </div>
+          <button class="ghost small" data-history="${h.id}">View</button>
+        </div>
+      `,
+    )
+    .join('');
+};
+
+const renderFollowupSuggestions = () => {
+  if (!DOM.followupSuggestions) return;
+  const suggestions = [
+    'Expand on the key steps',
+    'Explain differential diagnoses',
+    'List red flags',
+  ];
+  DOM.followupSuggestions.innerHTML = suggestions
+    .map((s) => `<button class="ghost small" data-suggest="${s}">${s}</button>`)
+    .join('');
+};
+
+const updateAIModeBadge = () => {
+  if (DOM.aiModeBadge) DOM.aiModeBadge.textContent = state.aiMode === 'detailed' ? 'Detailed' : 'Concise';
+};
+
+const loadAIMode = () => {
+  try {
+    const stored = localStorage.getItem(AI_MODE_KEY);
+    if (stored === 'detailed' || stored === 'concise') return stored;
+  } catch (err) {
+    // ignore
+  }
+  return 'concise';
+};
+
+const setAIMode = (mode) => {
+  const next = mode === 'detailed' ? 'detailed' : 'concise';
+  state.aiMode = next;
+  updateAIModeBadge();
+  if (DOM.btnAIMode) DOM.btnAIMode.textContent = next === 'detailed' ? 'Detailed' : 'Concise';
+  try {
+    localStorage.setItem(AI_MODE_KEY, next);
+  } catch (err) {
+    // ignore
+  }
 };
 const updateExplainAvailability = () => {
   const hasRemoteKey = Boolean(cachedAIKey);
@@ -351,8 +436,13 @@ const explainQuestion = async () => {
   const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
   const wordLimit = state.aiMode === 'detailed' ? 400 : 180;
   const maxTokens = state.aiMode === 'detailed' ? 1100 : 550;
+  if (state.explainLoading) {
+    showToast('Please wait for the current explanation to finish.', 'error');
+    return;
+  }
   state.explainLoading = true;
   showExplainOverlay('Requesting explanation…');
+  DOM.aiLoader?.classList.remove('hidden');
   if (DOM.btnExplain) {
     DOM.btnExplain.textContent = 'Explaining...';
     DOM.btnExplain.classList.add('disabled');
@@ -386,10 +476,12 @@ const explainQuestion = async () => {
     const data = await res.json();
     const text = formatExplanation(data?.choices?.[0]?.message?.content || data?.explanation || 'No response');
     if (DOM.explainStatus) DOM.explainStatus.textContent = '';
-    if (DOM.explainCopy) DOM.explainCopy.textContent = text;
+    if (DOM.explainCopy) DOM.explainCopy.innerHTML = text;
+    addHistoryEntry(q.stem, state.aiMode, text);
   } catch (err) {
     if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed. Try again.';
   } finally {
+    DOM.aiLoader?.classList.add('hidden');
     state.explainLoading = false;
     if (DOM.btnExplain) {
       DOM.btnExplain.textContent = 'Explain';
@@ -402,6 +494,10 @@ const askFollowup = async () => {
   const followUp = DOM.followupInput?.value?.trim();
   if (!followUp) {
     showToast('Enter a follow-up question first.', 'error');
+    return;
+  }
+  if (state.explainLoading) {
+    showToast('Please wait for the current explanation to finish.', 'error');
     return;
   }
   const { questions, current } = state.practice;
@@ -417,6 +513,7 @@ const askFollowup = async () => {
   const wordLimit = state.aiMode === 'detailed' ? 400 : 180;
   const maxTokens = state.aiMode === 'detailed' ? 1100 : 550;
   showExplainOverlay('Requesting follow-up…');
+  DOM.aiLoader?.classList.remove('hidden');
   try {
     const model = sanitizeModel(publicModel || getPublicAIModel());
     const prompt = buildPrompt(q.stem, answers, correctIndex, followUp, wordLimit);
@@ -445,9 +542,12 @@ const askFollowup = async () => {
     const data = await res.json();
     const text = formatExplanation(data?.choices?.[0]?.message?.content || data?.explanation || 'No response');
     if (DOM.explainStatus) DOM.explainStatus.textContent = '';
-    if (DOM.explainCopy) DOM.explainCopy.textContent = text;
+    if (DOM.explainCopy) DOM.explainCopy.innerHTML = text;
+    addHistoryEntry(q.stem, state.aiMode, text);
   } catch (err) {
     if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed. Try again.';
+  } finally {
+    DOM.aiLoader?.classList.add('hidden');
   }
 };
 
@@ -816,6 +916,7 @@ const init = async () => {
     const next = getTheme() === 'light' ? 'dark' : 'light';
     applyTheme(next);
   });
+  setAIMode(loadAIMode());
   // Fetch AI key upfront so Explain can enable if available.
   fetchAIKeyFromSupabase().finally(updateExplainAvailability);
   document.addEventListener('keydown', handleKeyNav);
@@ -843,12 +944,26 @@ const init = async () => {
   });
   DOM.btnRetryExplain?.addEventListener('click', explainQuestion);
   DOM.btnAskFollowup?.addEventListener('click', askFollowup);
-  document.querySelectorAll('.ai-mode-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.aiMode === 'detailed' ? 'detailed' : 'concise';
-      state.aiMode = mode;
-      document.querySelectorAll('.ai-mode-btn').forEach((b) => b.classList.toggle('active', b === btn));
-    });
+  DOM.btnAIMode?.addEventListener('click', () => {
+    setAIMode(state.aiMode === 'detailed' ? 'concise' : 'detailed');
+  });
+  DOM.followupSuggestions?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-suggest]');
+    if (!btn) return;
+    const text = btn.dataset.suggest || '';
+    if (DOM.followupInput) DOM.followupInput.value = text;
+    askFollowup();
+  });
+  DOM.explainHistory?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-history]');
+    if (!btn) return;
+    const id = btn.dataset.history;
+    const entry = state.explainHistory.find((h) => h.id === id);
+    if (entry && DOM.explainCopy) {
+      DOM.explainCopy.innerHTML = entry.text;
+      showExplainOverlay('Loaded from history');
+      if (DOM.explainStatus) DOM.explainStatus.textContent = '';
+    }
   });
   DOM.toggleTimed?.addEventListener('change', (e) => {
     state.practice.timed = e.target.checked;
@@ -861,6 +976,9 @@ const init = async () => {
   DOM.btnShortcuts?.addEventListener('click', () => toggleShortcutSheet());
   DOM.shortcutInline?.addEventListener('click', () => toggleShortcutSheet());
   setDensity(loadDensity());
+  renderExplainHistory();
+  renderFollowupSuggestions();
+  updateAIModeBadge();
 
   const selection = loadSelection();
   const bankIds = selection?.bankIds || (selection?.bankId ? [selection.bankId] : []);

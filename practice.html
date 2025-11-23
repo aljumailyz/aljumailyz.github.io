@@ -108,6 +108,11 @@
       <div class="modal-body">
         <p class="muted" id="explain-status">Requesting explanation…</p>
         <div class="ai-copy" id="explain-copy"></div>
+        <div class="ai-loader hidden" id="ai-loader"></div>
+        <div class="ai-meta">
+          <span class="pill tone-soft small" id="ai-mode-badge">Concise</span>
+          <span class="pill tone-soft small">Abbreviations expanded</span>
+        </div>
         <div class="actions ai-actions">
           <button class="ghost small" id="btn-copy-explain">Copy</button>
           <button class="ghost small" id="btn-toggle-explain">Collapse</button>
@@ -115,10 +120,7 @@
         </div>
         <div class="ai-mode">
           <span class="muted">Style:</span>
-          <div class="pill-group">
-            <button class="ghost small ai-mode-btn active" data-ai-mode="concise">Concise</button>
-            <button class="ghost small ai-mode-btn" data-ai-mode="detailed">Detailed</button>
-          </div>
+          <button class="ghost small ai-mode-toggle" id="btn-ai-mode">Concise</button>
         </div>
         <div class="followup-box">
           <label class="input-group">
@@ -128,6 +130,11 @@
           <div class="actions">
             <button class="ghost small" id="btn-ask-followup">Ask</button>
           </div>
+          <div class="followup-suggestions" id="followup-suggestions"></div>
+        </div>
+        <div class="history-box">
+          <p class="muted">Recent explanations</p>
+          <div class="history-list" id="explain-history"></div>
         </div>
       </div>
     </div>
