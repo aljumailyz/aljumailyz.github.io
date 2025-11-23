@@ -7,7 +7,7 @@ const PROJECT_URL = Deno.env.get("PROJECT_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
 const MODEL = "@preset/ai-explainer";
 const ORIGIN_ALLOW_ALL = "*";
-const TOKEN_LIMIT = 8000; // approx tokens per user per rolling hour
+const TOKEN_LIMIT = 10000; // approx tokens per user per rolling hour
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ORIGIN_ALLOW_ALL,
@@ -28,7 +28,7 @@ const getSupabaseAdmin = () => {
   });
 };
 
-const estimateTokens = (question: string, answers: string[], expectedOutput = 400) => {
+const estimateTokens = (question: string, answers: string[], expectedOutput = 800) => {
   const inputChars = (question || "").length + answers.join(" ").length;
   const inputTokens = Math.ceil(inputChars / 4);
   return inputTokens + expectedOutput;
@@ -114,7 +114,7 @@ serve(async (req: Request) => {
     return errorResponse("Missing question or answers");
   }
 
-  const estimatedTokens = estimateTokens(question, answers, 400);
+  const estimatedTokens = estimateTokens(question, answers, 800);
   const usageResult = await rateLimit(admin, userId, estimatedTokens);
   if (!usageResult.allowed) {
     const resetMsg = usageResult.resetAt
@@ -140,7 +140,7 @@ serve(async (req: Request) => {
     body: JSON.stringify({
       model: MODEL,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 400,
+      max_tokens: 800,
     }),
   });
 
