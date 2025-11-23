@@ -262,6 +262,7 @@ const loadQuestions = async () => {
 const loadUsers = async () => {
   const client = getClient();
   if (!client) return;
+  const profileMap = await buildProfileMap();
   const { data, error } = await client.from('user_stats').select('user_id, accuracy, answered, time');
   if (error) {
     setDashStatus('User stats view missing or restricted. Create `user_stats` view.');
@@ -270,6 +271,7 @@ const loadUsers = async () => {
   state.users =
     data?.map((u) => ({
       email: u.user_id,
+      name: profileMap[u.user_id] || profileMap[u.user_id?.toLowerCase?.()]?.name || '',
       accuracy: Math.round(u.accuracy || 0),
       answered: u.answered || 0,
       time: u.time || 0,
@@ -306,7 +308,12 @@ const buildProfileMap = async () => {
       const map = {};
       (data || []).forEach((row) => {
         const name = [row.first_name, row.last_name].filter(Boolean).join(' ').trim();
-        map[row.id] = { email: row.email || '', name };
+        const email = (row.email || '').toLowerCase();
+        const entry = { email, name };
+        const identifiers = [row.id, row.email, email].filter(Boolean);
+        identifiers.forEach((key) => {
+          map[key] = entry;
+        });
       });
       return map;
     } catch (err) {
@@ -718,7 +725,11 @@ const renderQuestions = () => {
 const renderUsers = () => {
   if (!DOM.userList) return;
   const query = DOM.userSearch?.value?.toLowerCase() || '';
-  const filtered = state.users.filter((u) => u.email.toLowerCase().includes(query));
+  const filtered = state.users.filter((u) => {
+    const name = (u.name || '').toLowerCase();
+    const email = (u.email || '').toLowerCase();
+    return !query || email.includes(query) || name.includes(query);
+  });
   if (!filtered.length) {
     DOM.userList.innerHTML =
       '<div class="empty-cta"><strong>No users found.</strong><span class="muted">Try clearing search or check if stats view is available.</span></div>';
@@ -729,7 +740,8 @@ const renderUsers = () => {
       (u) => `
       <div class="list-item">
         <div class="list-meta">
-          <strong>${u.email}</strong>
+          <strong>${u.name || u.email}</strong>
+          <span class="muted">${u.email}</span>
           <span class="muted">Accuracy ${u.accuracy}% · ${u.answered} answered · ${u.time} min</span>
         </div>
         <button class="ghost small" data-action="impersonate" data-email="${u.email}">View</button>
