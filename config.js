@@ -5,7 +5,7 @@ window.__SUPABASE_CONFIG = {
 };
 
 // Optional public AI key/model for Explain fallback (OpenRouter). Safe only if you accept exposing the key.
-window.__AI_PUBLIC_KEY = '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';
+window.__AI_PUBLIC_KEY = '';
 window.__AI_MODEL = '@preset/ai-explainer';
 
 // Paid users allowlist (lowercase emails). Add/remove emails here to grant/revoke access.

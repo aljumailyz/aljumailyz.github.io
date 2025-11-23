@@ -101,27 +101,26 @@ const hideExplainOverlay = () => {
   if (DOM.explainOverlay) DOM.explainOverlay.classList.add('hidden');
 };
 
-const getPublicAIKey = () => window.__AI_PUBLIC_KEY || '';
-const getPublicAIModel = () => window.__AI_MODEL || '@preset/ai-explainer';
+const getPublicAIKey = () => ''; // disabled; use Supabase-stored key instead
+const getPublicAIModel = () => '@preset/ai-explainer';
 let cachedAIKey = null;
 let cachedAIModel = null;
 
 const updateExplainAvailability = () => {
   const hasEndpoint = Boolean(getExplainEndpoint());
-  const hasPublicKey = Boolean(getPublicAIKey());
   const hasRemoteKey = Boolean(cachedAIKey);
-  const disabled = !(hasEndpoint || hasPublicKey || hasRemoteKey);
+  const disabled = !(hasEndpoint || hasRemoteKey);
   if (DOM.btnExplain) {
     DOM.btnExplain.classList.toggle('disabled', disabled);
     DOM.btnExplain.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     if (!state.explainLoading) DOM.btnExplain.textContent = disabled ? 'Explain (setup needed)' : 'Explain';
   }
-  if (DOM.aiHint) DOM.aiHint.textContent = hasEndpoint || hasPublicKey || hasRemoteKey ? 'AI' : 'Set config.js';
+  if (DOM.aiHint) DOM.aiHint.textContent = hasEndpoint || hasRemoteKey ? 'AI' : 'Set config.js';
 };
 
 const fetchAIKeyFromSupabase = async () => {
   if (cachedAIKey) return { key: cachedAIKey, model: cachedAIModel || getPublicAIModel() };
-  if (!supabaseAvailable()) return { key: getPublicAIKey(), model: getPublicAIModel() };
+  if (!supabaseAvailable()) return { key: '', model: getPublicAIModel() };
   try {
     const client = supabaseClient();
     const { data, error } = await client.from('ai_keys').select('key, model').eq('id', 'public').maybeSingle();
