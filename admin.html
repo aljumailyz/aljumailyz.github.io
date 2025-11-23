@@ -80,6 +80,10 @@
                 <option value="Year 6">Year 6</option>
               </select>
             </label>
+            <label class="input-group">
+              <span>Subject</span>
+              <input id="bank-subject" placeholder="Cardiology, Surgery, Psychiatry…" />
+            </label>
             <div class="actions">
               <button class="primary" id="btn-save-bank">Save bank</button>
               <button class="ghost" id="btn-reset-bank">Reset</button>
@@ -197,14 +201,32 @@
             </div>
           </div>
           <div class="input-group">
-            <label for="import-file">Exam file (.json or .txt)</label>
-            <input id="import-file" type="file" accept=".json,.txt" />
+            <label for="import-file">Exam files (.json or .txt)</label>
+            <input id="import-file" type="file" accept=".json,.txt" multiple />
+          </div>
+          <div class="grid split">
+            <label class="input-group">
+              <span>Apply Year to all imports (optional)</span>
+              <select id="import-year">
+                <option value="">Keep file value</option>
+                <option value="Year 1">Year 1</option>
+                <option value="Year 2">Year 2</option>
+                <option value="Year 3">Year 3</option>
+                <option value="Year 4">Year 4</option>
+                <option value="Year 5">Year 5</option>
+                <option value="Year 6">Year 6</option>
+              </select>
+            </label>
+            <label class="input-group">
+              <span>Apply Subject to all imports (optional)</span>
+              <input id="import-subject" placeholder="Cardiology, Surgery…" />
+            </label>
           </div>
           <div class="actions">
             <button class="primary" id="btn-import">Import exam</button>
             <a class="ghost" href="sample-exam.json" download>Download sample</a>
           </div>
-          <p class="hint" id="import-status">Format: see sample-exam.json (bank + questions array with up to 6 answers).</p>
+          <p class="hint" id="import-status">Format: see sample-exam.json (bank + questions array with up to 6 answers). You can drop multiple files; optional Year/Subject will be applied to each imported bank.</p>
         </div>
 
         <div class="question-list" id="question-list"></div>

@@ -19,6 +19,7 @@ const DOM = {
   dashStatus: document.getElementById('dash-status'),
   bankSelect: document.getElementById('bank-select'),
   bankHint: document.getElementById('bank-hint'),
+  subjectFilter: document.getElementById('subject-filter'),
   btnStart: document.getElementById('btn-start'),
   yearPillsFilter: document.getElementById('year-pills-filter'),
   btnProfile: document.getElementById('btn-profile'),
@@ -105,9 +106,9 @@ const basePath = (() => {
 const emailRedirectTo = `${window.location.origin}${basePath}auth-callback.html`;
 
 const sampleBanks = [
-  { id: 'sample-year1', name: 'Year 1 – Foundations', questions: 20, year: 'Year 1' },
-  { id: 'sample-year2', name: 'Year 2 – Systems', questions: 18, year: 'Year 2' },
-  { id: 'sample-year3', name: 'Year 3 – Clinical', questions: 15, year: 'Year 3' },
+  { id: 'sample-year1', name: 'Year 1 – Foundations', questions: 20, year: 'Year 1', subject: 'Foundations' },
+  { id: 'sample-year2', name: 'Year 2 – Systems', questions: 18, year: 'Year 2', subject: 'Systems' },
+  { id: 'sample-year3', name: 'Year 3 – Clinical', questions: 15, year: 'Year 3', subject: 'Clinical' },
 ];
 
 const stateBanks = {
@@ -227,7 +228,7 @@ const loadBanks = async () => {
     return;
   }
   loadAccessGrants(); // warm access list alongside banks
-  const { data, error } = await client.from('banks').select('id, name, year').order('created_at', { ascending: false });
+  const { data, error } = await client.from('banks').select('id, name, year, subject').order('created_at', { ascending: false });
   if (error || !data?.length) {
     stateBanks.banks = sampleBanks;
   } else {
@@ -235,6 +236,7 @@ const loadBanks = async () => {
       id: b.id,
       name: b.name,
       year: b.year || '',
+      subject: b.subject || '',
       questions: b.questions || 0,
     }));
   }
@@ -257,21 +259,65 @@ const getYearFilter = () => {
   return active?.dataset.year || 'all';
 };
 
+const getBankSubject = (bank) => bank.subject || 'Unlabeled';
+
+const getSubjectFilter = () => DOM.subjectFilter?.value || 'all';
+
+const renderSubjectFilter = (banks = []) => {
+  if (!DOM.subjectFilter) return;
+  const current = DOM.subjectFilter.value || 'all';
+  const subjects = Array.from(
+    new Set(
+      (banks || [])
+        .map((b) => getBankSubject(b))
+        .filter(Boolean)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  );
+  subjects.sort((a, b) => a.localeCompare(b));
+  const options = ['<option value="all">All subjects</option>']
+    .concat(subjects.map((s) => `<option value="${s}">${s}</option>`))
+    .join('');
+  DOM.subjectFilter.innerHTML = options;
+  if (current && subjects.includes(current)) {
+    DOM.subjectFilter.value = current;
+  }
+};
+
 const renderBanks = () => {
   if (!DOM.bankSelect) return;
   const banks = stateBanks.banks.length ? stateBanks.banks : sampleBanks;
+  renderSubjectFilter(banks);
   const filter = getYearFilter();
+  const subjectFilter = getSubjectFilter();
   const filtered = banks.filter((b) => {
     const yr = getBankYear(b);
-    return filter === 'all' || yr === filter;
+    const subj = getBankSubject(b);
+    const yearMatches = filter === 'all' || yr === filter;
+    const subjectMatches = subjectFilter === 'all' || subj === subjectFilter;
+    return yearMatches && subjectMatches;
+  });
+  const normalizeYearSort = (yr) => {
+    const match = `${yr}`.match(/(\d+)/);
+    return match ? Number(match[1]) : 999;
+  };
+  const sorted = filtered.slice().sort((a, b) => {
+    const yearDiff = normalizeYearSort(getBankYear(a)) - normalizeYearSort(getBankYear(b));
+    if (yearDiff !== 0) return yearDiff;
+    const subjDiff = getBankSubject(a).localeCompare(getBankSubject(b));
+    if (subjDiff !== 0) return subjDiff;
+    return a.name.localeCompare(b.name);
   });
   const options = ['<option value="">Choose a bank…</option>']
     .concat(
-      filtered.map(
+      sorted.map(
         (b) =>
           `<option value="${b.id}">${b.name}${
             b.questions ? ` (${b.questions})` : ''
-          }${getBankYear(b) && getBankYear(b) !== 'All' ? ` • ${getBankYear(b)}` : ''}</option>`,
+          }${getBankYear(b) && getBankYear(b) !== 'All' ? ` • ${getBankYear(b)}` : ''}${
+            getBankSubject(b) ? ` • ${getBankSubject(b)}` : ''
+          }</option>`,
       ),
     )
     .join('');
@@ -861,7 +907,6 @@ const init = async () => {
     persistPractice();
     renderPractice();
   });
-  DOM.yearFilter?.addEventListener('change', renderBanks);
   document.addEventListener('keydown', handleKeyNav);
   DOM.btnResetStats?.addEventListener('click', () => {
     state.stats = { accuracy: 0, answered: 0, time: 0 };
@@ -878,6 +923,7 @@ const init = async () => {
     setDashStatus('Refreshing banks…');
     loadBanks();
   });
+  DOM.subjectFilter?.addEventListener('change', renderBanks);
   DOM.yearPillsFilter?.addEventListener('click', (event) => {
     const pill = event.target.closest('.pill');
     if (!pill?.dataset.year) return;

@@ -3,7 +3,8 @@
   "bank": {
     "name": "Sample Medicine Bank",
     "description": "Demo import bank for testing (safe to overwrite)",
-    "year": "Year 3"
+    "year": "Year 3",
+    "subject": "Internal Medicine"
   },
   "questions": [
     {

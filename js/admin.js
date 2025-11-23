@@ -14,6 +14,7 @@ const DOM = {
   bankSelect: document.getElementById('question-bank'),
   bankNameInput: document.getElementById('bank-name'),
   bankYearInput: document.getElementById('bank-year'),
+  bankSubjectInput: document.getElementById('bank-subject'),
   btnSaveBank: document.getElementById('btn-save-bank'),
   btnResetBank: document.getElementById('btn-reset-bank'),
   btnNewBank: document.getElementById('btn-new-bank'),
@@ -42,6 +43,8 @@ const DOM = {
   importFile: document.getElementById('import-file'),
   btnImport: document.getElementById('btn-import'),
   importStatus: document.getElementById('import-status'),
+  importYear: document.getElementById('import-year'),
+  importSubject: document.getElementById('import-subject'),
 };
 
 const state = {
@@ -126,7 +129,10 @@ const loadBanks = async () => {
     setDashStatus(`Banks error: ${error.message}`);
     return;
   }
-  state.banks = data || [];
+  state.banks = (data || []).map((b) => ({
+    ...b,
+    subject: b.subject || '',
+  }));
   updateBankCounts();
   renderBanks();
 };
@@ -278,16 +284,19 @@ const normalizeYear = (yr) => {
   return yr;
 };
 
+const normalizeSubject = (subject) => (subject || '').trim();
+
 const resetBankForm = () => {
   if (DOM.bankNameInput) DOM.bankNameInput.value = '';
   if (DOM.bankYearInput) DOM.bankYearInput.value = '';
+  if (DOM.bankSubjectInput) DOM.bankSubjectInput.value = '';
   state.editingBankId = null;
 };
 
-const saveBank = async (name, year = '', description = '', id = null) => {
+const saveBank = async (name, year = '', subject = '', description = '', id = null) => {
   const client = getClient();
   if (!client) return;
-  const payload = { name, year: normalizeYear(year), description };
+  const payload = { name, year: normalizeYear(year), subject: normalizeSubject(subject), description };
   if (id) payload.id = id;
   const { error } = await client.from('banks').upsert(payload);
   if (error) {
@@ -330,7 +339,7 @@ const renderBanks = () => {
         <div class="list-item">
           <div class="list-meta">
             <strong>${b.name}</strong>
-            <span class="muted">${b.count} questions ${b.year ? `• ${b.year}` : ''}</span>
+            <span class="muted">${b.count} questions${b.year ? ` • ${b.year}` : ''}${b.subject ? ` • ${b.subject}` : ''}</span>
           </div>
           <div class="list-actions">
             <button class="ghost small" data-bank="${b.id}" data-action="edit-bank">Edit</button>
@@ -343,7 +352,11 @@ const renderBanks = () => {
   }
   if (DOM.bankSelect) {
     const opts = ['<option value="">Select bank…</option>']
-      .concat(state.banks.map((b) => `<option value="${b.id}">${b.name}${b.year ? ` • ${b.year}` : ''}</option>`))
+      .concat(
+        state.banks.map(
+          (b) => `<option value="${b.id}">${b.name}${b.year ? ` • ${b.year}` : ''}${b.subject ? ` • ${b.subject}` : ''}</option>`,
+        ),
+      )
       .join('');
     DOM.bankSelect.innerHTML = opts;
   }
@@ -648,7 +661,26 @@ const parseExamJSON = (raw) => {
       answers: normalizeAnswers(q.answers),
     };
   });
-  return { bank: { name: raw.bank.name, description: raw.bank.description || '' }, questions };
+  return {
+    bank: {
+      name: raw.bank.name,
+      description: raw.bank.description || '',
+      year: normalizeYear(raw.bank.year),
+      subject: normalizeSubject(raw.bank.subject),
+    },
+    questions,
+  };
+};
+
+const applyImportDefaults = (exam, defaultYear = '', defaultSubject = '') => {
+  return {
+    ...exam,
+    bank: {
+      ...exam.bank,
+      year: normalizeYear(defaultYear || exam.bank.year || ''),
+      subject: normalizeSubject(defaultSubject || exam.bank.subject || ''),
+    },
+  };
 };
 
 const validateExam = (exam) => {
@@ -672,11 +704,25 @@ const importExam = async (exam) => {
   if (!bankId) {
     const { data: bankRows, error: bankErr } = await client
       .from('banks')
-      .insert({ name: exam.bank.name, description: exam.bank.description || '' })
+      .insert({
+        name: exam.bank.name,
+        description: exam.bank.description || '',
+        year: normalizeYear(exam.bank.year),
+        subject: normalizeSubject(exam.bank.subject),
+      })
       .select()
       .maybeSingle();
     if (bankErr || !bankRows) throw new Error(bankErr?.message || 'Bank insert failed');
     bankId = bankRows.id;
+  } else if (exam.bank.year || exam.bank.subject || exam.bank.description) {
+    await client
+      .from('banks')
+      .update({
+        year: normalizeYear(exam.bank.year) || existing.year || null,
+        subject: normalizeSubject(exam.bank.subject) || existing.subject || null,
+        description: exam.bank.description || existing.description || null,
+      })
+      .eq('id', bankId);
   }
   const payload = exam.questions.map((q) => ({ ...q, bank_id: bankId }));
   const { error: qErr } = await client.from('questions').insert(payload);
@@ -686,31 +732,41 @@ const importExam = async (exam) => {
 };
 
 const handleImportClick = async () => {
-  const file = DOM.importFile?.files?.[0];
-  if (!file) {
-    setImportStatus('Choose a JSON file first.');
+  const files = Array.from(DOM.importFile?.files || []);
+  if (!files.length) {
+    setImportStatus('Choose one or more JSON files first.');
     return;
   }
-  setImportStatus('Reading file...');
-  try {
-    const text = await file.text();
-    const parsed = parseExamJSON(parseJSONWithCleanup(text));
-    const validationErrors = validateExam(parsed);
-    if (validationErrors.length) {
-      setImportStatus(`Import blocked: ${validationErrors.slice(0, 4).join(' ')}`);
-      return;
+  const defaultYear = normalizeYear(DOM.importYear?.value || '');
+  const defaultSubject = normalizeSubject(DOM.importSubject?.value || '');
+  setImportStatus(`Reading ${files.length} file(s)...`);
+  let imported = 0;
+  let lastMessage = '';
+  for (const file of files) {
+    try {
+      const text = await file.text();
+      const parsed = parseExamJSON(parseJSONWithCleanup(text));
+      const exam = applyImportDefaults(parsed, defaultYear, defaultSubject);
+      const validationErrors = validateExam(exam);
+      if (validationErrors.length) {
+        lastMessage = `Import blocked for ${file.name}: ${validationErrors.slice(0, 4).join(' ')}`;
+        continue;
+      }
+      setImportStatus(`Importing ${file.name}...`);
+      await importExam(exam);
+      imported += 1;
+      lastMessage = `Imported ${exam.questions.length} questions into ${exam.bank.name}.`;
+      addHistoryEntry({
+        id: exam.bank.name,
+        stem: `Imported ${exam.questions.length} questions`,
+        bankId: exam.bank.name,
+        action: 'Imported',
+      });
+    } catch (err) {
+      lastMessage = `Import failed for ${file.name}: ${err.message}`;
     }
-    setImportStatus('Importing to Supabase...');
-    await importExam(parsed);
-    addHistoryEntry({
-      id: parsed.bank.name,
-      stem: `Imported ${parsed.questions.length} questions`,
-      bankId: parsed.bank.name,
-      action: 'Imported',
-    });
-  } catch (err) {
-    setImportStatus(`Import failed: ${err.message}`);
   }
+  setImportStatus(`${lastMessage} (${imported}/${files.length} files processed)`);
 };
 
 const signIn = async () => {
@@ -823,16 +879,18 @@ const handleBankEdit = (bank) => {
   state.editingBankId = bank.id;
   if (DOM.bankNameInput) DOM.bankNameInput.value = bank.name || '';
   if (DOM.bankYearInput) DOM.bankYearInput.value = bank.year || '';
+  if (DOM.bankSubjectInput) DOM.bankSubjectInput.value = bank.subject || '';
 };
 
 const handleSaveBankClick = async () => {
   const name = DOM.bankNameInput?.value?.trim();
   const year = DOM.bankYearInput?.value || '';
+  const subject = DOM.bankSubjectInput?.value || '';
   if (!name) {
     setDashStatus('Bank name is required.');
     return;
   }
-  await saveBank(name, year, '', state.editingBankId);
+  await saveBank(name, year, subject, '', state.editingBankId);
 };
 
 const handleNewBank = () => {
