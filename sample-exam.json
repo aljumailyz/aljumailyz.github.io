@@ -1,29 +1,96 @@
 {
-  "description": "Template for importing an exam: define one bank object and an array of questions. Each question supports up to 6 answers; include a single isCorrect=true. Fields: bank.name (required), bank.description (optional), questions[].topic (optional), questions[].stem (required), questions[].imageUrl (optional), questions[].answers[].text (required), answers[].explanation (optional), answers[].isCorrect (boolean).",
+  "description": "Import template with explicit validation rules for the ExamForge admin tool. Includes one bank and a questions array (1–500 items). Each question supports up to 6 answers; exactly one answer must have isCorrect=true. Fields: bank.name (required), bank.description (optional), bank.year (optional string like 'Year 2'); questions[].topic (optional), questions[].stem (required, 1–1200 chars), questions[].imageUrl (optional, absolute URL), questions[].difficulty (optional: Easy/Moderate/Hard), questions[].mode (optional: Tutor/Timed), questions[].answers[].text (required, non-empty), questions[].answers[].explanation (required—write a concise teaching point explaining why this option is right or wrong), questions[].answers[].isCorrect (boolean, exactly one true).",
   "bank": {
     "name": "Sample Medicine Bank",
-    "description": "Demo import bank for testing"
+    "description": "Demo import bank for testing (safe to overwrite)",
+    "year": "Year 3"
   },
   "questions": [
     {
       "topic": "Cardiology",
-      "stem": "What is the most likely diagnosis for a patient with chest pain relieved by nitroglycerin?",
-      "imageUrl": "https://example.com/image1.png",
+      "stem": "A 58-year-old with exertional chest pressure relieved by sublingual nitroglycerin presents for evaluation. ECG is normal at rest. What is the most likely diagnosis?",
+      "imageUrl": "https://example.com/angiogram.png",
+      "difficulty": "Moderate",
+      "mode": "Tutor",
       "answers": [
-        { "text": "Stable angina", "explanation": "Typical exertional chest pain relieved by rest or nitro.", "isCorrect": true },
-        { "text": "Unstable angina", "explanation": "Pain usually occurs at rest and is progressive." },
-        { "text": "Prinzmetal angina", "explanation": "Vasospastic; often transient ST elevation." },
-        { "text": "NSTEMI", "explanation": "Would show elevated troponins." }
+        {
+          "text": "Stable angina",
+          "explanation": "Typical exertional pain from fixed atherosclerotic narrowing that improves with rest/nitro due to decreased preload and myocardial demand.",
+          "isCorrect": true
+        },
+        {
+          "text": "Unstable angina",
+          "explanation": "Usually progressive or new-onset pain at rest from plaque rupture with thrombosis; would not be predictably relieved only by exertion/rest cycles.",
+          "isCorrect": false
+        },
+        {
+          "text": "Prinzmetal (variant) angina",
+          "explanation": "Vasospastic episodes cause transient ST elevation and classically occur at rest/night rather than exertional predictable pain.",
+          "isCorrect": false
+        },
+        {
+          "text": "NSTEMI",
+          "explanation": "Would show troponin elevation and often resting/atypical pain; baseline ECG is often abnormal.",
+          "isCorrect": false
+        }
       ]
     },
     {
       "topic": "Pulmonology",
-      "stem": "Which therapy improves mortality in COPD patients with resting hypoxemia?",
+      "stem": "Which intervention improves survival in a patient with COPD and chronic resting hypoxemia (PaO2 ≤55 mmHg or SpO2 ≤88%)?",
       "imageUrl": null,
+      "difficulty": "Easy",
+      "mode": "Timed",
       "answers": [
-        { "text": "Long-term oxygen therapy", "explanation": "Shown to improve survival in chronic hypoxemia.", "isCorrect": true },
-        { "text": "Short-acting bronchodilators", "explanation": "Symptomatic only." },
-        { "text": "Inhaled corticosteroids", "explanation": "Reduce exacerbations but not mortality." }
+        {
+          "text": "Long-term supplemental oxygen",
+          "explanation": "Home oxygen for severe resting hypoxemia improves survival and quality of life in COPD.",
+          "isCorrect": true
+        },
+        {
+          "text": "Short-acting bronchodilators",
+          "explanation": "Provide symptom relief but have not shown mortality benefit.",
+          "isCorrect": false
+        },
+        {
+          "text": "Inhaled corticosteroids",
+          "explanation": "Reduce exacerbations in some patients but do not confer a clear mortality benefit alone.",
+          "isCorrect": false
+        },
+        {
+          "text": "Pulmonary rehabilitation alone",
+          "explanation": "Improves exercise tolerance and symptoms but not survival in resting hypoxemia.",
+          "isCorrect": false
+        }
+      ]
+    },
+    {
+      "topic": "Neurology",
+      "stem": "A 24-year-old develops ascending weakness 2 weeks after a diarrheal illness. Nerve conduction shows demyelination. Which finding best supports the diagnosis?",
+      "imageUrl": "https://example.com/nerve-study.png",
+      "difficulty": "Hard",
+      "mode": "Tutor",
+      "answers": [
+        {
+          "text": "Albuminocytologic dissociation in CSF",
+          "explanation": "Guillain–Barré shows elevated protein with normal cell count due to demyelination without inflammation in CSF.",
+          "isCorrect": true
+        },
+        {
+          "text": "Low CSF glucose",
+          "explanation": "Suggests infection (e.g., bacterial/fungal meningitis), not classic for acute demyelinating polyradiculoneuropathy.",
+          "isCorrect": false
+        },
+        {
+          "text": "Oligoclonal bands",
+          "explanation": "Typical of multiple sclerosis (central demyelination), not peripheral demyelination.",
+          "isCorrect": false
+        },
+        {
+          "text": "Marked pleocytosis",
+          "explanation": "CSF WBC count is usually normal in Guillain–Barré; pleocytosis would suggest alternative etiologies.",
+          "isCorrect": false
+        }
       ]
     }
   ]
