@@ -9,9 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script src="config.js"></script>
-  <script type="module" src="js/profile.js" defer></script>
+<script type="module" src="js/profile.js" defer></script>
 </head>
 <body>
+  <div class="page-ribbon"></div>
   <div class="bg-accents"></div>
   <main class="shell single">
     <section class="hero">
@@ -71,7 +72,10 @@
       </div>
       <label class="input-group">
         <span>New password (leave blank to keep)</span>
-        <input id="profile-password" type="password" placeholder="••••••••">
+        <div class="password-field">
+          <input id="profile-password" type="password" placeholder="••••••••">
+          <button class="ghost small" type="button" data-toggle-pass="profile-password">Show</button>
+        </div>
       </label>
       <div class="actions">
         <button class="primary" id="btn-save-profile">Save profile</button>
@@ -81,6 +85,33 @@
         <button class="ghost" id="btn-signout">Sign out</button>
       </div>
       <p class="hint" id="profile-status"></p>
+    </section>
+
+    <section class="panel slim">
+      <div class="panel-head">
+        <div>
+          <p class="overline">Progress</p>
+          <p class="card-title">Accuracy trend</p>
+        </div>
+        <div class="head-actions">
+          <button class="ghost small" id="btn-refresh-attempts">Refresh</button>
+          <button class="primary small" id="btn-export-attempts">Export attempts (CSV)</button>
+        </div>
+      </div>
+      <div class="grid split">
+        <div>
+          <p class="muted">Recent accuracy</p>
+          <p class="card-title" id="profile-accuracy">—</p>
+          <p class="muted" id="profile-attempt-count">0 attempts</p>
+        </div>
+        <div>
+          <svg class="sparkline" id="profile-sparkline" viewBox="0 0 120 60" preserveAspectRatio="none">
+            <path class="sparkline-area" d=""></path>
+            <path class="sparkline-line" d=""></path>
+          </svg>
+        </div>
+      </div>
+      <p class="hint" id="profile-attempt-hint">Pulls the last 50 attempts for this account.</p>
     </section>
   </main>
   <div class="toast-stack" id="toast-stack"></div>

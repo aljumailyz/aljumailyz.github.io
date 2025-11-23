@@ -25,9 +25,19 @@ const DOM = {
   loadingText: document.getElementById('loading-text'),
   pageStatus: document.getElementById('page-status'),
   themeToggle: document.getElementById('theme-toggle'),
+  sessionBarBank: document.getElementById('session-bank'),
+  sessionTags: document.getElementById('session-tags'),
+  sessionProgress: document.getElementById('session-progress'),
+  sessionTimer: document.getElementById('session-timer'),
+  btnToggleDensity: document.getElementById('btn-toggle-density'),
+  btnShortcuts: document.getElementById('btn-shortcuts'),
+  shortcutInline: document.getElementById('shortcut-inline'),
+  shortcutSheet: document.getElementById('shortcut-sheet'),
+  toastStack: document.getElementById('toast-stack'),
 };
 
 const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
+const DENSITY_STORAGE_KEY = 'examforge.practice.density';
 
 const state = {
   user: null,
@@ -43,6 +53,11 @@ const state = {
     timed: false,
     timer: { duration: 30, remaining: 30, handle: null },
     startedAt: null,
+    sessionStartedAt: null,
+    year: '',
+    subject: '',
+    reviewMode: false,
+    reviewQueue: [],
   },
   explainLoading: false,
 };
@@ -92,6 +107,25 @@ const applyTheme = (theme) => {
 };
 applyTheme(getTheme());
 
+const setDensity = (mode = 'comfortable') => {
+  const compact = mode === 'compact';
+  document.body.classList.toggle('compact', compact);
+  if (DOM.btnToggleDensity) DOM.btnToggleDensity.textContent = compact ? 'Comfortable view' : 'Compact view';
+  try {
+    localStorage.setItem(DENSITY_STORAGE_KEY, compact ? 'compact' : 'comfortable');
+  } catch (err) {
+    // ignore
+  }
+};
+
+const loadDensity = () => {
+  try {
+    return localStorage.getItem(DENSITY_STORAGE_KEY) || 'comfortable';
+  } catch (err) {
+    return 'comfortable';
+  }
+};
+
 const loadSelection = () => {
   try {
     const raw = localStorage.getItem('examforge.nextPractice');
@@ -109,6 +143,33 @@ const getAllowedEmails = () => {
   return Array.from(new Set([...paidUsers, ...dynamic]));
 };
 
+const showToast = (message, type = 'success', action = null) => {
+  if (!DOM.toastStack) return;
+  const div = document.createElement('div');
+  div.className = `toast ${type}`;
+  const content = document.createElement('div');
+  content.textContent = message;
+  div.appendChild(content);
+  if (action?.label && typeof action.handler === 'function') {
+    const btn = document.createElement('button');
+    btn.className = 'ghost small';
+    btn.textContent = action.label;
+    btn.addEventListener('click', () => {
+      action.handler();
+      div.remove();
+    });
+    div.appendChild(btn);
+  }
+  DOM.toastStack.appendChild(div);
+  setTimeout(() => div.remove(), 4500);
+};
+
+const toggleShortcutSheet = (show) => {
+  const isVisible = DOM.shortcutSheet && !DOM.shortcutSheet.classList.contains('hidden');
+  const next = show !== undefined ? show : !isVisible;
+  DOM.shortcutSheet?.classList.toggle('hidden', !next);
+};
+
 const enforceAccess = () => {
   const email = state.user?.email?.toLowerCase() || '';
   const allowed = getAllowedEmails();
@@ -123,11 +184,19 @@ const enforceAccess = () => {
 
 const renderPractice = () => {
   const { questions, current, submissions, bankName, timed, timer } = state.practice;
+  if (state.practice.reviewMode && !state.practice.reviewQueue.length) state.practice.reviewMode = false;
   if (DOM.practiceBank) DOM.practiceBank.textContent = bankName || 'Practice';
+  if (DOM.sessionBarBank) DOM.sessionBarBank.textContent = bankName || 'Bank';
+  const tagText = [state.practice.year, state.practice.subject].filter(Boolean).join(' • ');
+  if (DOM.sessionTags) DOM.sessionTags.textContent = tagText || '—';
   if (DOM.practiceProgress) DOM.practiceProgress.textContent = questions.length ? `${current + 1} / ${questions.length}` : '0 / 0';
   if (DOM.miniProgress) DOM.miniProgress.textContent = questions.length ? `${current + 1} / ${questions.length}` : '0 / 0';
+  if (DOM.sessionProgress) DOM.sessionProgress.textContent = questions.length ? `${current + 1} / ${questions.length}` : '0 / 0';
   if (!questions.length) {
     if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'No questions available.';
+    if (DOM.sessionTimer) DOM.sessionTimer.textContent = '--';
+    if (DOM.timerDisplay) DOM.timerDisplay.textContent = '--';
+    if (DOM.miniTimer) DOM.miniTimer.textContent = '--';
     return;
   }
   const q = questions[current];
@@ -165,6 +234,7 @@ const renderPractice = () => {
   const timerText = timed ? `${timer.remaining}s` : '--';
   if (DOM.timerDisplay) DOM.timerDisplay.textContent = timerText;
   if (DOM.miniTimer) DOM.miniTimer.textContent = timerText;
+  if (DOM.sessionTimer) DOM.sessionTimer.textContent = timerText;
   if (DOM.practiceNav) {
     DOM.practiceNav.innerHTML = questions
       .map((_, idx) => {
@@ -260,16 +330,18 @@ const renderNoSession = () => {
   hideLoading();
 };
 
-const loadQuestions = async (bankId, bankName, timedSelection = false) => {
+const loadQuestions = async (bankIds = [], bankNames = [], timedSelection = false, meta = {}) => {
   showLoading('Loading questions…');
   const client = supabaseAvailable() ? supabaseClient() : null;
   let questions = [];
-  if (client) {
-    const { data, error } = await client
-      .from('questions')
-      .select('id, stem, image_url, answers')
-      .eq('bank_id', bankId)
-      .order('created_at', { ascending: false });
+  const ids = Array.isArray(bankIds) ? bankIds.filter(Boolean) : bankIds ? [bankIds] : [];
+  const nameList = Array.isArray(bankNames) ? bankNames : bankNames ? [bankNames] : [];
+  const title = nameList.length > 1 ? `${nameList[0]} + ${nameList.length - 1} more` : nameList[0] || 'Practice';
+  if (client && ids.length) {
+    const query = client.from('questions').select('id, stem, image_url, answers').order('created_at', { ascending: false });
+    if (ids.length === 1) query.eq('bank_id', ids[0]);
+    else query.in('bank_id', ids);
+    const { data, error } = await query;
     if (error) {
       console.warn('Questions load error', error);
       setStatus(`Could not load questions (${error.message || error.code || 'RLS/permissions?'}).`);
@@ -281,14 +353,14 @@ const loadQuestions = async (bankId, bankName, timedSelection = false) => {
         answers: shuffleArray(q.answers || []),
       }));
     } else {
-      setStatus('No questions found for this bank.');
+      setStatus('No questions found for selected banks.');
     }
   }
   if (!questions.length) {
     questions = [
       {
         id: null,
-        stem: 'No questions found for this bank.',
+        stem: 'No questions found for the selected banks.',
         imageUrl: null,
         answers: [
           { text: 'Return', explanation: '', isCorrect: true },
@@ -299,14 +371,19 @@ const loadQuestions = async (bankId, bankName, timedSelection = false) => {
   }
   questions = shuffleArray(questions);
   state.practice = {
-    bankName,
-    bankId,
+    bankName: title,
+    bankId: ids.join(','),
     questions,
     current: 0,
     submissions: questions.map((q) => ({ selected: null, submitted: false, correct: null, questionId: q.id || null, flagged: false })),
     timed: timedSelection,
     timer: { duration: 30, remaining: 30, handle: null },
     startedAt: Date.now(),
+    sessionStartedAt: Date.now(),
+    year: Array.isArray(meta.years) ? meta.years.join(', ') : meta.year || '',
+    subject: Array.isArray(meta.subjects) ? meta.subjects.join(', ') : meta.subject || '',
+    reviewMode: false,
+    reviewQueue: [],
   };
   hideLoading();
   renderPractice();
@@ -348,6 +425,10 @@ const handleOptionClick = (event) => {
 const handleSubmitQuestion = () => {
   const { questions, current, submissions } = state.practice;
   const sub = submissions[current] || {};
+  if (sub.submitted) {
+    handleNextQuestion();
+    return;
+  }
   if (!questions.length || sub.selected === null) {
     if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'Select an answer first.';
     return;
@@ -366,7 +447,16 @@ const handleSubmitQuestion = () => {
 const handleNextQuestion = () => {
   const total = state.practice.questions.length;
   if (!total) return;
-  state.practice.current = (state.practice.current + 1) % total;
+  if (state.practice.reviewMode && state.practice.reviewQueue.length) {
+    const currentIdx = state.practice.reviewQueue.indexOf(state.practice.current);
+    const nextIdx =
+      currentIdx === -1 || currentIdx === state.practice.reviewQueue.length - 1
+        ? state.practice.reviewQueue[0]
+        : state.practice.reviewQueue[currentIdx + 1];
+    state.practice.current = nextIdx;
+  } else {
+    state.practice.current = (state.practice.current + 1) % total;
+  }
   state.practice.startedAt = Date.now();
   resetTimer();
   renderPractice();
@@ -375,7 +465,14 @@ const handleNextQuestion = () => {
 const handlePrevQuestion = () => {
   const total = state.practice.questions.length;
   if (!total) return;
-  state.practice.current = (state.practice.current - 1 + total) % total;
+  if (state.practice.reviewMode && state.practice.reviewQueue.length) {
+    const currentIdx = state.practice.reviewQueue.indexOf(state.practice.current);
+    const prevIdx =
+      currentIdx <= 0 ? state.practice.reviewQueue[state.practice.reviewQueue.length - 1] : state.practice.reviewQueue[currentIdx - 1];
+    state.practice.current = prevIdx;
+  } else {
+    state.practice.current = (state.practice.current - 1 + total) % total;
+  }
   state.practice.startedAt = Date.now();
   resetTimer();
   renderPractice();
@@ -403,6 +500,19 @@ const toggleFlag = () => {
   renderPractice();
 };
 
+function reviewMistakes() {
+  if (!state.practice.reviewQueue.length) {
+    if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'No incorrect answers to review.';
+    return;
+  }
+  state.practice.reviewMode = true;
+  state.practice.current = state.practice.reviewQueue[0];
+  state.practice.startedAt = Date.now();
+  resetTimer();
+  if (DOM.practiceStatus) DOM.practiceStatus.textContent = 'Reviewing incorrect questions only.';
+  renderPractice();
+}
+
 const finishQuiz = () => {
   const { questions, submissions } = state.practice;
   if (!questions.length) {
@@ -417,7 +527,20 @@ const finishQuiz = () => {
   const correctCount = submissions.filter((s) => s.correct).length;
   const total = questions.length;
   const accuracyPct = Math.round((correctCount / total) * 100);
-  if (DOM.practiceStatus) DOM.practiceStatus.textContent = `Quiz submitted. Score: ${correctCount}/${total} (${accuracyPct}%).`;
+  const elapsedMs = state.practice.sessionStartedAt ? Date.now() - state.practice.sessionStartedAt : 0;
+  const elapsedMin = Math.max(1, Math.round(elapsedMs / 60000));
+  const summary = `Score: ${correctCount}/${total} (${accuracyPct}%) • ${elapsedMin} min`;
+  state.practice.reviewQueue = submissions
+    .map((s, idx) => ({ ...s, idx }))
+    .filter((s) => s.submitted && s.correct === false)
+    .map((s) => s.idx);
+  state.practice.reviewMode = state.practice.reviewQueue.length > 0;
+  if (DOM.practiceStatus) DOM.practiceStatus.textContent = `Quiz submitted. ${summary}`;
+  showToast(`Quiz submitted. ${summary}`, state.practice.reviewQueue.length ? 'error' : 'success', {
+    label: state.practice.reviewQueue.length ? 'Review mistakes' : '',
+    handler: () => reviewMistakes(),
+  });
+  if (!state.practice.reviewQueue.length) state.practice.reviewMode = false;
 };
 
 const resetTimer = () => {
@@ -432,10 +555,12 @@ const startTimer = () => {
   state.practice.timer.remaining = state.practice.timer.duration;
   if (DOM.timerDisplay) DOM.timerDisplay.textContent = `${state.practice.timer.remaining}s`;
   if (DOM.miniTimer) DOM.miniTimer.textContent = `${state.practice.timer.remaining}s`;
+  if (DOM.sessionTimer) DOM.sessionTimer.textContent = `${state.practice.timer.remaining}s`;
   state.practice.timer.handle = setInterval(() => {
     state.practice.timer.remaining -= 1;
     if (DOM.timerDisplay) DOM.timerDisplay.textContent = `${state.practice.timer.remaining}s`;
     if (DOM.miniTimer) DOM.miniTimer.textContent = `${state.practice.timer.remaining}s`;
+    if (DOM.sessionTimer) DOM.sessionTimer.textContent = `${state.practice.timer.remaining}s`;
     if (state.practice.timer.remaining <= 0) {
       clearInterval(state.practice.timer.handle);
       handleSubmitQuestion();
@@ -491,7 +616,49 @@ const handleKeyNav = (event) => {
       event.preventDefault();
       handleNextQuestion();
       break;
+    case 'n':
+    case 'N':
+      event.preventDefault();
+      handleNextQuestion();
+      break;
+    case 'p':
+    case 'P':
+      event.preventDefault();
+      handlePrevQuestion();
+      break;
+    case 'f':
+    case 'F':
+      event.preventDefault();
+      toggleFlag();
+      break;
+    case 't':
+    case 'T':
+      event.preventDefault();
+      if (DOM.toggleTimed) {
+        DOM.toggleTimed.checked = !DOM.toggleTimed.checked;
+        state.practice.timed = DOM.toggleTimed.checked;
+        resetTimer();
+        renderPractice();
+      }
+      break;
+    case '?':
+      event.preventDefault();
+      toggleShortcutSheet();
+      break;
+    case 'Escape':
+      toggleShortcutSheet(false);
+      break;
     default:
+      if (event.key >= '1' && event.key <= '6') {
+        if (sub.submitted) break;
+        const idxNum = Number(event.key) - 1;
+        if (idxNum >= 0 && idxNum <= maxIdx) {
+          const nextSubs = submissions.slice();
+          nextSubs[current] = { ...sub, selected: idxNum, submitted: sub.submitted, correct: sub.correct };
+          state.practice.submissions = nextSubs;
+          renderPractice();
+        }
+      }
       break;
   }
 };
@@ -515,10 +682,17 @@ const init = async () => {
     resetTimer();
     renderPractice();
   });
+  DOM.btnToggleDensity?.addEventListener('click', () =>
+    setDensity(document.body.classList.contains('compact') ? 'comfortable' : 'compact'),
+  );
+  DOM.btnShortcuts?.addEventListener('click', () => toggleShortcutSheet());
+  DOM.shortcutInline?.addEventListener('click', () => toggleShortcutSheet());
+  setDensity(loadDensity());
 
   const selection = loadSelection();
-  if (!selection?.bankId) {
-    setStatus('No bank selected. Return to the dashboard to start a session.');
+  const bankIds = selection?.bankIds || (selection?.bankId ? [selection.bankId] : []);
+  if (!bankIds.length) {
+    setStatus('No banks selected. Return to the dashboard to start a session.');
     return;
   }
   state.practice.timed = Boolean(selection.timed);
@@ -536,7 +710,10 @@ const init = async () => {
   state.user = data.session.user;
   await loadAccessGrants();
   if (!enforceAccess()) return;
-  await loadQuestions(selection.bankId, selection.bankName || 'Practice bank', selection.timed);
+  await loadQuestions(bankIds, selection.bankNames || [], selection.timed, {
+    years: selection.years || [],
+    subjects: selection.subjects || [],
+  });
 };
 
 document.addEventListener('DOMContentLoaded', init);

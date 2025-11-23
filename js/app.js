@@ -12,6 +12,7 @@ const DOM = {
   btnSignup: document.getElementById('btn-signup'),
   btnSignout: document.getElementById('btn-signout'),
   authStatus: document.getElementById('auth-status'),
+  authAlert: document.getElementById('auth-alert'),
   hero: document.getElementById('hero'),
   dashboard: document.getElementById('dashboard'),
   dashGreeting: document.getElementById('dash-greeting'),
@@ -22,6 +23,7 @@ const DOM = {
   subjectFilter: document.getElementById('subject-filter'),
   btnStart: document.getElementById('btn-start'),
   yearPillsFilter: document.getElementById('year-pills-filter'),
+  bankTable: document.getElementById('bank-table'),
   btnProfile: document.getElementById('btn-profile'),
   btnSignoutDash: document.getElementById('btn-signout-dash'),
   menuToggle: document.getElementById('user-menu-toggle'),
@@ -114,6 +116,7 @@ const sampleBanks = [
 
 const stateBanks = {
   banks: [],
+  selected: [],
 };
 
 const paidUsers = (window.__PAID_USERS || []).map((e) => e.toLowerCase());
@@ -121,6 +124,8 @@ const getAllowedEmails = () => {
   const dynamic = state.access?.allowed || [];
   return Array.from(new Set([...paidUsers, ...dynamic]));
 };
+
+const SELECTED_BANKS_KEY = 'examforge.selectedBanks';
 
 // Fisher-Yates shuffle
 const shuffleArray = (arr = []) => {
@@ -154,11 +159,11 @@ const enforceAccess = () => {
   }
   if (!hasAccess) {
     DOM.btnStart?.setAttribute('disabled', 'disabled');
-    DOM.bankSelect?.setAttribute('disabled', 'disabled');
+    DOM.bankTable?.querySelectorAll('input[type="checkbox"]')?.forEach((cb) => cb.setAttribute('disabled', 'disabled'));
     DOM.practice?.classList.add('hidden');
   } else {
     DOM.btnStart?.removeAttribute('disabled');
-    DOM.bankSelect?.removeAttribute('disabled');
+    DOM.bankTable?.querySelectorAll('input[type="checkbox"]')?.forEach((cb) => cb.removeAttribute('disabled'));
   }
   return hasAccess;
 };
@@ -166,16 +171,27 @@ const enforceAccess = () => {
 // Launch the dedicated practice page using saved selection.
 const startPracticeRedirect = () => {
   if (!enforceAccess()) return;
-  const id = DOM.bankSelect?.value;
-  if (!id) {
-    if (DOM.bankHint) DOM.bankHint.textContent = 'Pick a bank to continue.';
+  const ids = stateBanks.selected || [];
+  if (!ids.length) {
+    if (DOM.bankHint) DOM.bankHint.textContent = 'Pick one or more banks to continue.';
     return;
   }
   const timedSelection = Boolean(DOM.selectTimed?.checked);
-  const bank = stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id);
+  const banks = ids
+    .map((id) => stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id))
+    .filter(Boolean);
+  const bankNames = banks.map((b) => b.name);
+  const years = Array.from(new Set(banks.map((b) => b.year).filter(Boolean)));
+  const subjects = Array.from(new Set(banks.map((b) => b.subject).filter(Boolean)));
   localStorage.setItem(
     'examforge.nextPractice',
-    JSON.stringify({ bankId: id, bankName: bank?.name || 'Selected bank', timed: timedSelection }),
+    JSON.stringify({
+      bankIds: ids,
+      bankNames,
+      timed: timedSelection,
+      years,
+      subjects,
+    }),
   );
   window.location.href = 'practice.html';
 };
@@ -308,7 +324,7 @@ const renderSubjectFilter = (banks = []) => {
 };
 
 const renderBanks = () => {
-  if (!DOM.bankSelect) return;
+  if (!DOM.bankTable) return;
   const banks = stateBanks.banks.length ? stateBanks.banks : sampleBanks;
   renderSubjectFilter(banks);
   const filter = getYearFilter();
@@ -331,19 +347,51 @@ const renderBanks = () => {
     if (subjDiff !== 0) return subjDiff;
     return a.name.localeCompare(b.name);
   });
-  const options = ['<option value="">Choose a bank…</option>']
-    .concat(
-      sorted.map(
-        (b) =>
-          `<option value="${b.id}">${b.name}${
-            b.questions ? ` (${b.questions})` : ''
-          }${getBankYear(b) && getBankYear(b) !== 'All' ? ` • ${getBankYear(b)}` : ''}${
-            getBankSubject(b) ? ` • ${getBankSubject(b)}` : ''
-          }</option>`,
-      ),
+  if (!sorted.length) {
+    DOM.bankTable.innerHTML = '<p class="muted">No banks match your filters.</p>';
+    return;
+  }
+  const selected = new Set(stateBanks.selected);
+  const rows = sorted
+    .map(
+      (b) => `
+        <tr class="${selected.has(b.id) ? 'selected' : ''}">
+          <td><input type="checkbox" data-bank-id="${b.id}" ${selected.has(b.id) ? 'checked' : ''}></td>
+          <td>
+            <div class="bank-pill">
+              <strong>${b.name}</strong>
+              ${getBankYear(b) && getBankYear(b) !== 'All' ? `<span class="pill tone-soft small">${getBankYear(b)}</span>` : ''}
+              ${getBankSubject(b) ? `<span class="pill tone-soft small">${getBankSubject(b)}</span>` : ''}
+            </div>
+          </td>
+          <td class="muted">${b.questions ? `${b.questions} q` : ''}</td>
+        </tr>
+      `,
     )
     .join('');
-  DOM.bankSelect.innerHTML = options;
+  DOM.bankTable.innerHTML = `<table>
+    <thead><tr><th></th><th>Bank</th><th>Questions</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  if (DOM.bankHint) DOM.bankHint.textContent = selected.size ? `${selected.size} bank(s) selected.` : 'Select one or more banks.';
+};
+
+const persistSelectedBanks = () => {
+  try {
+    localStorage.setItem(SELECTED_BANKS_KEY, JSON.stringify(stateBanks.selected));
+  } catch (err) {
+    // ignore
+  }
+};
+
+const loadSelectedBanks = () => {
+  try {
+    const raw = localStorage.getItem(SELECTED_BANKS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) || [];
+  } catch (err) {
+    return [];
+  }
 };
 
 const setAuthUI = (message = '') => {
@@ -370,6 +418,45 @@ const setAuthUI = (message = '') => {
   if (signedIn) enforceAccess();
 };
 
+const setAuthAlert = (message = '', tone = 'error') => {
+  if (!DOM.authAlert) return;
+  if (!message) {
+    DOM.authAlert.classList.add('hidden');
+    return;
+  }
+  DOM.authAlert.textContent = message;
+  DOM.authAlert.classList.remove('hidden');
+  DOM.authAlert.classList.toggle('success', tone === 'success');
+  DOM.authAlert.classList.toggle('error', tone !== 'success');
+};
+
+const initPasswordToggles = () => {
+  document.querySelectorAll('[data-toggle-pass]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.togglePass;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      const nextType = input.type === 'password' ? 'text' : 'password';
+      input.type = nextType;
+      btn.textContent = nextType === 'password' ? 'Show' : 'Hide';
+    });
+  });
+};
+
+const handleBankTableClick = (event) => {
+  const checkbox = event.target.closest('input[type="checkbox"][data-bank-id]');
+  if (!checkbox) return;
+  const id = checkbox.dataset.bankId;
+  if (!id) return;
+  const selected = new Set(stateBanks.selected);
+  if (checkbox.checked) selected.add(id);
+  else selected.delete(id);
+  stateBanks.selected = Array.from(selected);
+  persistSelectedBanks();
+  if (DOM.bankHint) DOM.bankHint.textContent = selected.size ? `${selected.size} bank(s) selected.` : 'Select one or more banks.';
+  renderBanks();
+};
+
 const auth = async (mode) => {
   if (!supabaseAvailable()) {
     setAuthUI('Supabase keys missing.');
@@ -383,11 +470,13 @@ const auth = async (mode) => {
   if (!email || !password) return;
   if (mode === 'signup' && (!first || !last || !year)) {
     setAuthUI('First name, last name, and year are required.');
+    setAuthAlert('Fill first name, last name, and year to create your account.', 'error');
     return;
   }
   const client = supabaseClient();
   if (!client) {
     setAuthUI('Supabase client not ready.');
+    setAuthAlert('Supabase client not ready. Check config.js keys.', 'error');
     return;
   }
   const payload =
@@ -401,18 +490,22 @@ const auth = async (mode) => {
         : await client.auth.signInWithPassword(payload);
     if (error) {
       setAuthUI(error.message);
+      setAuthAlert(error.message, 'error');
     } else {
       state.user = data.user || data.session?.user || null;
       if (mode === 'signup') {
         setAuthUI('Almost there! Check your inbox and click the verification link to activate your account.');
+        setAuthAlert('Verification email sent. Check your inbox to activate.', 'success');
       } else {
         setAuthUI('Signed in.');
+        setAuthAlert('', 'success');
       }
       enforceAccess();
     }
   } catch (err) {
     console.error('Auth error', err);
     setAuthUI('Unable to reach Supabase. Check your project URL/key.');
+    setAuthAlert('Unable to reach Supabase. Check URL/key.', 'error');
   }
 };
 
@@ -421,6 +514,7 @@ const signOut = async () => {
   if (!supabaseAvailable()) {
     state.user = null;
     setAuthUI('Signed out.');
+    setAuthAlert('');
     persistPractice(true);
     DOM.profilePanel?.classList.add('hidden');
     return;
@@ -428,6 +522,7 @@ const signOut = async () => {
   await supabaseClient().auth.signOut();
   state.user = null;
   setAuthUI('Signed out.');
+  setAuthAlert('');
   persistPractice(true);
   DOM.profilePanel?.classList.add('hidden');
 };
@@ -563,7 +658,13 @@ const handleStartPractice = () => {
   if (DOM.bankHint) DOM.bankHint.textContent = `Launching ${bank?.name || 'bank'}…`;
   if (DOM.dashStatus) DOM.dashStatus.textContent = `Practice session ready for ${bank?.name || 'selected bank'}.`;
   // Store selection and redirect to full-screen practice page
-  const nextPractice = { bankId: id, bankName: bank?.name || 'Selected bank', timed: timedSelection };
+  const nextPractice = {
+    bankId: id,
+    bankName: bank?.name || 'Selected bank',
+    timed: timedSelection,
+    year: bank?.year || '',
+    subject: bank?.subject || '',
+  };
   localStorage.setItem('examforge.nextPractice', JSON.stringify(nextPractice));
   window.location.href = 'practice.html';
 };
@@ -914,6 +1015,7 @@ const logAttempt = async (submission, question) => {
 };
 
 const init = async () => {
+  stateBanks.selected = loadSelectedBanks();
   renderBanks(); // show sample immediately
   loadBanks(); // async fetch real banks
   refreshStats();
@@ -954,6 +1056,7 @@ const init = async () => {
     setDashStatus('Refreshing banks…');
     loadBanks();
   });
+  DOM.bankTable?.addEventListener('change', handleBankTableClick);
   DOM.subjectFilter?.addEventListener('change', renderBanks);
   DOM.yearPillsFilter?.addEventListener('click', (event) => {
     const pill = event.target.closest('.pill');
@@ -971,6 +1074,7 @@ const init = async () => {
     if (DOM.menuPanel.contains(e.target) || DOM.menuToggle.contains(e.target)) return;
     DOM.menuPanel.classList.add('hidden');
   });
+  initPasswordToggles();
   await checkSession();
   setAuthUI('');
 };

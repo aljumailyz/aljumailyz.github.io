@@ -12,6 +12,7 @@
   <script type="module" src="js/practice.js" defer></script>
 </head>
 <body>
+  <div class="page-ribbon"></div>
   <div class="bg-accents"></div>
   <header class="topbar">
     <div class="brand">
@@ -29,6 +30,15 @@
 
   <main class="shell single">
     <section class="panel" id="practice-shell">
+      <div class="session-bar" id="session-bar">
+        <span class="pill tone-soft" id="session-bank">Bank</span>
+        <span class="pill tone-soft" id="session-tags"></span>
+        <div class="spacer"></div>
+        <span class="pill" id="session-progress">0 / 0</span>
+        <span class="pill tone-soft" id="session-timer">--</span>
+        <button class="ghost small" id="btn-toggle-density">Compact view</button>
+        <button class="ghost small" id="btn-shortcuts">Shortcuts</button>
+      </div>
       <div class="panel-head">
         <div>
           <p class="overline">Practice</p>
@@ -51,6 +61,14 @@
         <span class="pill tone-soft" id="timer-display">--</span>
         <div class="spacer"></div>
         <a class="ghost small" href="index.html">Exit</a>
+      </div>
+      <div class="shortcut-hint">
+        <span class="pill tone-soft small">1–6 select</span>
+        <span class="pill tone-soft small">N next</span>
+        <span class="pill tone-soft small">P prev</span>
+        <span class="pill tone-soft small">F flag</span>
+        <span class="pill tone-soft small">T toggle timer</span>
+        <span class="pill clickable small" id="shortcut-inline">Show keys</span>
       </div>
       <div class="practice-layout">
         <div class="practice-nav" id="practice-nav"></div>
@@ -93,5 +111,17 @@
       </div>
     </div>
   </div>
+  <div class="shortcut-sheet hidden" id="shortcut-sheet">
+    <h4>Keyboard shortcuts</h4>
+    <ul>
+      <li>1–6: select answer</li>
+      <li>N: next question</li>
+      <li>P: previous question</li>
+      <li>F: flag / unflag</li>
+      <li>T: toggle timed mode</li>
+      <li>Esc: close shortcuts</li>
+    </ul>
+  </div>
+  <div class="toast-stack" id="toast-stack"></div>
 </body>
 </html>

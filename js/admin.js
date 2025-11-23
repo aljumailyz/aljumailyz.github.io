@@ -10,6 +10,7 @@ const DOM = {
   dashboard: document.getElementById('dashboard'),
   dashGreeting: document.getElementById('dash-greeting'),
   dashSession: document.getElementById('dash-session'),
+  dashUpdated: document.getElementById('dash-updated'),
   bankList: document.getElementById('bank-list'),
   bankSelect: document.getElementById('question-bank'),
   bankNameInput: document.getElementById('bank-name'),
@@ -52,7 +53,17 @@ const DOM = {
   importSubject: document.getElementById('import-subject'),
   questionFilterBank: document.getElementById('question-filter-bank'),
   questionFilterText: document.getElementById('question-filter-text'),
+  countBanks: document.getElementById('count-banks'),
+  countUsers: document.getElementById('count-users'),
+  countAccess: document.getElementById('count-access'),
+  countActivity: document.getElementById('count-activity'),
+  countHistory: document.getElementById('count-history'),
+  countQuestions: document.getElementById('count-questions'),
+  btnToggleDensity: document.getElementById('btn-toggle-density'),
 };
+
+const COLLAPSE_STORAGE_KEY = 'examforge.admin.collapsed';
+const DENSITY_STORAGE_KEY = 'examforge.admin.density';
 
 const state = {
   user: null,
@@ -65,6 +76,10 @@ const state = {
   userActivity: [],
   history: [],
   accessGrants: [],
+  collapsedPanels: {},
+  bankMap: {},
+  density: 'comfortable',
+  lastUpdated: null,
 };
 
 const setDashStatus = (message = '') => {
@@ -97,6 +112,78 @@ const persistHistory = () => {
   }
 };
 
+const loadCollapsedPanels = () => {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) || {};
+  } catch (err) {
+    return {};
+  }
+};
+
+const persistCollapsedPanels = (collapsed = {}) => {
+  try {
+    localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(collapsed));
+  } catch (err) {
+    // ignore
+  }
+};
+
+const applyCollapsedPanels = () => {
+  const panels = document.querySelectorAll('[data-collapsible]');
+  panels.forEach((panel) => {
+    const key = panel.dataset.collapsible;
+    const collapsed = Boolean(state.collapsedPanels?.[key]);
+    panel.classList.toggle('collapsed', collapsed);
+    const toggle = panel.querySelector(`[data-collapse-target="${key}"]`);
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      toggle.textContent = collapsed ? 'Expand' : 'Collapse';
+    }
+  });
+};
+
+const rebuildBankMap = () => {
+  state.bankMap = state.banks.reduce((acc, bank) => {
+    acc[bank.id] = {
+      name: bank.name,
+      year: bank.year || '',
+      subject: bank.subject || '',
+    };
+    return acc;
+  }, {});
+};
+
+const updateCounts = () => {
+  if (DOM.countBanks) DOM.countBanks.textContent = state.banks.length;
+  if (DOM.countUsers) DOM.countUsers.textContent = state.users.length;
+  if (DOM.countAccess) DOM.countAccess.textContent = state.accessGrants.length;
+  if (DOM.countActivity) DOM.countActivity.textContent = state.userActivity.length;
+  if (DOM.countHistory) DOM.countHistory.textContent = state.history.length;
+  if (DOM.countQuestions) DOM.countQuestions.textContent = state.questions.length;
+};
+
+const loadDensityPreference = () => {
+  try {
+    return localStorage.getItem(DENSITY_STORAGE_KEY) || 'comfortable';
+  } catch (err) {
+    return 'comfortable';
+  }
+};
+
+const setDensity = (mode = 'comfortable') => {
+  const compact = mode === 'compact';
+  document.body.classList.toggle('compact', compact);
+  state.density = compact ? 'compact' : 'comfortable';
+  if (DOM.btnToggleDensity) DOM.btnToggleDensity.textContent = compact ? 'Comfortable view' : 'Compact view';
+  try {
+    localStorage.setItem(DENSITY_STORAGE_KEY, state.density);
+  } catch (err) {
+    // ignore
+  }
+};
+
 const addHistoryEntry = ({ id, stem, bankId, action }) => {
   const entry = {
     id,
@@ -109,6 +196,7 @@ const addHistoryEntry = ({ id, stem, bankId, action }) => {
   state.history = [entry, ...state.history].slice(0, 30);
   persistHistory();
   renderHistory();
+  updateCounts();
 };
 
 const getClient = () => {
@@ -120,12 +208,12 @@ const getClient = () => {
 };
 
 const updateBankCounts = () => {
-  if (!state.banks.length) return;
   const counts = state.questions.reduce((acc, q) => {
     acc[q.bankId] = (acc[q.bankId] || 0) + 1;
     return acc;
   }, {});
   state.banks = state.banks.map((b) => ({ ...b, count: counts[b.id] || 0 }));
+  rebuildBankMap();
 };
 
 const loadBanks = async () => {
@@ -141,6 +229,7 @@ const loadBanks = async () => {
     subject: b.subject || '',
   }));
   updateBankCounts();
+  updateCounts();
   renderBanks();
 };
 
@@ -167,6 +256,7 @@ const loadQuestions = async () => {
   updateBankCounts();
   renderBanks();
   renderQuestions();
+  updateCounts();
 };
 
 const loadUsers = async () => {
@@ -185,6 +275,7 @@ const loadUsers = async () => {
       time: u.time || 0,
     })) || [];
   renderUsers();
+  updateCounts();
 };
 
 const loadAccessGrants = async () => {
@@ -201,6 +292,7 @@ const loadAccessGrants = async () => {
     expiresAt: row.expires_at || null,
   }));
   renderAccessGrants();
+  updateCounts();
 };
 
 const buildProfileMap = async () => {
@@ -236,6 +328,15 @@ const formatTimeAgo = (iso) => {
   return `${days}d ago`;
 };
 
+const setUpdatedLabel = (iso) => {
+  if (!DOM.dashUpdated) return;
+  if (!iso) {
+    DOM.dashUpdated.textContent = 'Not loaded yet';
+    return;
+  }
+  DOM.dashUpdated.textContent = `Updated ${formatTimeAgo(iso)} (${new Date(iso).toLocaleTimeString()})`;
+};
+
 const loadUserActivity = async () => {
   const client = getClient();
   if (!client) return;
@@ -264,6 +365,7 @@ const loadUserActivity = async () => {
         };
       }) || [];
     renderUserActivity();
+    updateCounts();
   } catch (err) {
     setDashStatus('User activity load failed.');
   }
@@ -277,12 +379,15 @@ const refreshData = async () => {
   await loadUsers();
   await loadUserActivity();
   await loadAccessGrants();
+  state.lastUpdated = new Date().toISOString();
+  setUpdatedLabel(state.lastUpdated);
 };
 
 const clearHistory = () => {
   state.history = [];
   persistHistory();
   renderHistory();
+  updateCounts();
 };
 
 const normalizeYear = (yr) => {
@@ -380,22 +485,35 @@ const renderBanks = () => {
         return a.name.localeCompare(b.name);
       });
 
-    DOM.bankList.innerHTML = filtered
-      .map(
-        (b) => `
-        <div class="list-item">
-          <div class="list-meta">
-            <strong>${b.name}</strong>
-            <span class="muted">${b.count} questions${b.year ? ` • ${b.year}` : ''}${b.subject ? ` • ${b.subject}` : ''}</span>
-          </div>
-          <div class="list-actions">
-            <button class="ghost small" data-bank="${b.id}" data-action="edit-bank">Edit</button>
-            <button class="ghost small" data-bank="${b.id}" data-action="delete-bank">Delete</button>
+    if (!filtered.length) {
+      DOM.bankList.innerHTML = `
+        <div class="empty-cta">
+          <strong>No banks match your filters.</strong>
+          <span class="muted">Start a new bank or import an exam file to create one automatically.</span>
+          <div class="head-actions">
+            <a class="pill clickable" href="#banks">New bank</a>
+            <a class="pill clickable" href="#import">Import exam</a>
           </div>
         </div>
-      `,
-      )
-      .join('');
+      `;
+    } else {
+      DOM.bankList.innerHTML = filtered
+        .map(
+          (b) => `
+          <div class="list-item">
+            <div class="list-meta">
+              <strong>${b.name}</strong>
+              <span class="muted">${b.count} questions${b.year ? ` • ${b.year}` : ''}${b.subject ? ` • ${b.subject}` : ''}</span>
+            </div>
+            <div class="list-actions">
+              <button class="ghost small" data-bank="${b.id}" data-action="edit-bank">Edit</button>
+              <button class="ghost small" data-bank="${b.id}" data-action="delete-bank">Delete</button>
+            </div>
+          </div>
+        `,
+        )
+        .join('');
+    }
   }
   if (DOM.bankSelect) {
     const opts = ['<option value="">Select bank…</option>']
@@ -551,7 +669,8 @@ const saveQuestion = async () => {
 const renderQuestions = () => {
   if (!DOM.questionList) return;
   if (!state.questions.length) {
-    DOM.questionList.innerHTML = '<p class="hint">No questions yet.</p>';
+    DOM.questionList.innerHTML =
+      '<div class="empty-cta"><strong>No questions yet.</strong><span class="muted">Create one with “New question” or import an exam file.</span><div class="head-actions"><a class="pill clickable" href="#questions">New question</a><a class="pill clickable" href="#import">Import exam</a></div></div>';
     return;
   }
   const filterBank = DOM.questionFilterBank?.value || 'all';
@@ -562,12 +681,19 @@ const renderQuestions = () => {
     const matchesSearch = !search || text.includes(search);
     return matchesBank && matchesSearch;
   });
+  if (!filtered.length) {
+    DOM.questionList.innerHTML =
+      '<div class="empty-cta"><strong>No questions match your filters.</strong><span class="muted">Try showing all banks or clearing the search text.</span><div class="head-actions"><a class="pill clickable" href="#questions" data-action="reset-question-filters">Clear filters</a></div></div>';
+    return;
+  }
   DOM.questionList.innerHTML = filtered
     .map(
       (q) => `
       <div class="question-card" data-id="${q.id}">
         <div class="meta-row">
-          <span class="pill">${q.bankId}</span>
+          <span class="pill">${state.bankMap[q.bankId]?.name || q.bankId}</span>
+          ${state.bankMap[q.bankId]?.year ? `<span class="pill tone-soft small">${state.bankMap[q.bankId].year}</span>` : ''}
+          ${state.bankMap[q.bankId]?.subject ? `<span class="pill tone-soft small">${state.bankMap[q.bankId].subject}</span>` : ''}
           <span class="pill tone-soft">${q.topic || 'No topic'}</span>
         </div>
         <p class="q-text">${q.stem}</p>
@@ -593,6 +719,11 @@ const renderUsers = () => {
   if (!DOM.userList) return;
   const query = DOM.userSearch?.value?.toLowerCase() || '';
   const filtered = state.users.filter((u) => u.email.toLowerCase().includes(query));
+  if (!filtered.length) {
+    DOM.userList.innerHTML =
+      '<div class="empty-cta"><strong>No users found.</strong><span class="muted">Try clearing search or check if stats view is available.</span></div>';
+    return;
+  }
   DOM.userList.innerHTML = filtered
     .map(
       (u) => `
@@ -868,6 +999,7 @@ const signOut = async () => {
   state.user = null;
   setAuthUI('Signed out.');
   setDashStatus('');
+  setUpdatedLabel(null);
 };
 
 const initAuth = async () => {
@@ -887,6 +1019,7 @@ const initAuth = async () => {
 const handleListClick = async (event) => {
   const action = event.target.dataset.action;
   if (!action) return;
+  event.preventDefault();
   if (action === 'remove-answer') removeAnswer(Number(event.target.dataset.idx));
   if (action === 'mark-correct') markCorrect(Number(event.target.dataset.idx));
   if (action === 'delete-bank') {
@@ -920,6 +1053,11 @@ const handleListClick = async (event) => {
     const email = (event.target.dataset.email || '').toLowerCase();
     const current = state.accessGrants.find((a) => a.email === email);
     await setAccess(email, !(current?.allowed));
+  }
+  if (action === 'reset-question-filters') {
+    if (DOM.questionFilterBank) DOM.questionFilterBank.value = 'all';
+    if (DOM.questionFilterText) DOM.questionFilterText.value = '';
+    renderQuestions();
   }
 };
 
@@ -988,6 +1126,15 @@ const handleAddAccess = async () => {
   if (DOM.accessEmail) DOM.accessEmail.value = '';
 };
 
+const handleCollapseClick = (event) => {
+  const toggle = event.target.closest('[data-collapse-target]');
+  if (!toggle) return;
+  const key = toggle.dataset.collapseTarget;
+  state.collapsedPanels[key] = !state.collapsedPanels[key];
+  persistCollapsedPanels(state.collapsedPanels);
+  applyCollapsedPanels();
+};
+
 const init = async () => {
   // Render base UI
   renderBanks();
@@ -997,6 +1144,11 @@ const init = async () => {
   renderQuestions();
   state.history = loadHistory();
   renderHistory();
+  setDensity(loadDensityPreference());
+  state.collapsedPanels = loadCollapsedPanels();
+  applyCollapsedPanels();
+  setUpdatedLabel(state.lastUpdated);
+  updateCounts();
 
   // Auth actions
   DOM.btnSignin?.addEventListener('click', signIn);
@@ -1018,6 +1170,10 @@ const init = async () => {
   DOM.bankSort?.addEventListener('change', renderBanks);
   DOM.questionFilterBank?.addEventListener('change', renderQuestions);
   DOM.questionFilterText?.addEventListener('input', renderQuestions);
+  DOM.dashboard?.addEventListener('click', handleCollapseClick);
+  DOM.btnToggleDensity?.addEventListener('click', () =>
+    setDensity(state.density === 'compact' ? 'comfortable' : 'compact'),
+  );
 
   // Question actions
   DOM.questionForm.btnSave?.addEventListener('click', saveQuestion);

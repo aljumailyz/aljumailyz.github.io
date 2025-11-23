@@ -50,52 +50,73 @@
           <p class="overline">Admin dashboard</p>
           <h2 class="card-title" id="dash-greeting">Welcome back</h2>
           <p class="lede">Manage question banks, questions, and view user stats.</p>
+          <p class="hint" id="dash-updated">Not loaded yet</p>
         </div>
-        <div class="pill tone-accent" id="dash-session">Signed in</div>
+        <div class="dash-actions">
+          <button class="ghost small" id="btn-toggle-density">Compact view</button>
+          <div class="pill tone-accent" id="dash-session">Signed in</div>
+        </div>
+      </div>
+
+      <div class="panel nav-panel">
+        <div class="nav-pills">
+          <a class="pill clickable" href="#banks">Banks</a>
+          <a class="pill clickable" href="#users">Users</a>
+          <a class="pill clickable" href="#access">Access</a>
+          <a class="pill clickable" href="#activity">Activity</a>
+          <a class="pill clickable" href="#history">History</a>
+          <a class="pill clickable" href="#questions">Questions</a>
+          <a class="pill clickable" href="#import">Import</a>
+        </div>
       </div>
 
       <div class="grid split">
-        <div class="panel">
+        <div class="panel" data-collapsible="banks" id="banks">
           <div class="panel-head">
             <div>
               <p class="overline">Question banks</p>
-              <p class="card-title">Create / edit banks</p>
+              <p class="card-title">Create / edit banks <span class="pill tone-soft small" id="count-banks">0</span></p>
             </div>
-            <button class="primary small" id="btn-new-bank">New bank</button>
+            <div class="head-actions">
+              <button class="ghost small collapse-toggle" data-collapse-target="banks" aria-expanded="true">Collapse</button>
+              <button class="primary small" id="btn-new-bank">New bank</button>
+            </div>
           </div>
-          <div class="grid split">
-            <label class="input-group">
-              <span>Search banks</span>
-              <input id="bank-filter" placeholder="Name, subject…" />
-            </label>
+          <div class="sticky-controls">
             <div class="grid split">
               <label class="input-group">
-                <span>Year</span>
-                <select id="bank-filter-year">
-                  <option value="all">All years</option>
-                  <option value="Year 1">Year 1</option>
-                  <option value="Year 2">Year 2</option>
-                  <option value="Year 3">Year 3</option>
-                  <option value="Year 4">Year 4</option>
-                  <option value="Year 5">Year 5</option>
-                  <option value="Year 6">Year 6</option>
-                </select>
+                <span>Search banks</span>
+                <input id="bank-filter" placeholder="Name, subject…" />
               </label>
-              <label class="input-group">
-                <span>Subject</span>
-                <select id="bank-filter-subject">
-                  <option value="all">All subjects</option>
-                </select>
-              </label>
-              <label class="input-group">
-                <span>Sort by</span>
-                <select id="bank-sort">
-                  <option value="name">Name</option>
-                  <option value="year">Year</option>
-                  <option value="subject">Subject</option>
-                  <option value="count">Question count</option>
-                </select>
-              </label>
+              <div class="grid split">
+                <label class="input-group">
+                  <span>Year</span>
+                  <select id="bank-filter-year">
+                    <option value="all">All years</option>
+                    <option value="Year 1">Year 1</option>
+                    <option value="Year 2">Year 2</option>
+                    <option value="Year 3">Year 3</option>
+                    <option value="Year 4">Year 4</option>
+                    <option value="Year 5">Year 5</option>
+                    <option value="Year 6">Year 6</option>
+                  </select>
+                </label>
+                <label class="input-group">
+                  <span>Subject</span>
+                  <select id="bank-filter-subject">
+                    <option value="all">All subjects</option>
+                  </select>
+                </label>
+                <label class="input-group">
+                  <span>Sort by</span>
+                  <select id="bank-sort">
+                    <option value="name">Name</option>
+                    <option value="year">Year</option>
+                    <option value="subject">Subject</option>
+                    <option value="count">Question count</option>
+                  </select>
+                </label>
+              </div>
             </div>
           </div>
           <div class="bank-form">
@@ -127,25 +148,29 @@
           <div class="bank-list" id="bank-list"></div>
         </div>
 
-        <div class="panel">
+        <div class="panel" data-collapsible="users" id="users">
           <div class="panel-head">
             <div>
               <p class="overline">Users</p>
-              <p class="card-title">Stats</p>
+              <p class="card-title">Stats <span class="pill tone-soft small" id="count-users">0</span></p>
             </div>
-            <input class="small" id="user-search" placeholder="Search email" />
+            <div class="head-actions">
+              <button class="ghost small collapse-toggle" data-collapse-target="users" aria-expanded="true">Collapse</button>
+              <input class="small" id="user-search" placeholder="Search email" />
+            </div>
           </div>
           <div id="user-list" class="list"></div>
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel" data-collapsible="access" id="access">
         <div class="panel-head">
           <div>
             <p class="overline">Access control</p>
-            <p class="card-title">Allow / revoke users</p>
+            <p class="card-title">Allow / revoke users <span class="pill tone-soft small" id="count-access">0</span></p>
           </div>
           <div class="head-actions">
+            <button class="ghost small collapse-toggle" data-collapse-target="access" aria-expanded="true">Collapse</button>
             <input class="small" id="access-email" placeholder="user@school.edu" />
             <select class="small" id="access-duration">
               <option value="30">30 days</option>
@@ -159,50 +184,59 @@
         <div id="access-list" class="list"></div>
       </div>
 
-      <div class="panel">
+      <div class="panel" data-collapsible="activity" id="activity">
         <div class="panel-head">
           <div>
             <p class="overline">User activity</p>
-            <p class="card-title">Recent attempts</p>
+            <p class="card-title">Recent attempts <span class="pill tone-soft small" id="count-activity">0</span></p>
           </div>
-          <button class="ghost small" id="btn-refresh-activity">Refresh</button>
+          <div class="head-actions">
+            <button class="ghost small collapse-toggle" data-collapse-target="activity" aria-expanded="true">Collapse</button>
+            <button class="ghost small" id="btn-refresh-activity">Refresh</button>
+          </div>
         </div>
         <div id="user-activity" class="list"></div>
       </div>
 
-      <div class="panel">
+      <div class="panel" data-collapsible="history" id="history">
         <div class="panel-head">
           <div>
             <p class="overline">History</p>
-            <p class="card-title">Recent edits</p>
+            <p class="card-title">Recent edits <span class="pill tone-soft small" id="count-history">0</span></p>
           </div>
           <div class="head-actions">
+            <button class="ghost small collapse-toggle" data-collapse-target="history" aria-expanded="true">Collapse</button>
             <button class="ghost small" id="btn-clear-history">Clear</button>
           </div>
         </div>
         <div id="history-list" class="list"></div>
       </div>
 
-        <div class="panel">
+        <div class="panel" data-collapsible="questions" id="questions">
           <div class="panel-head">
           <div>
             <p class="overline">Questions</p>
-            <p class="card-title">Add / edit up to 6 answers</p>
+            <p class="card-title">Add / edit up to 6 answers <span class="pill tone-soft small" id="count-questions">0</span></p>
           </div>
-          <button class="primary small" id="btn-new-question">New question</button>
+          <div class="head-actions">
+            <button class="ghost small collapse-toggle" data-collapse-target="questions" aria-expanded="true">Collapse</button>
+            <button class="primary small" id="btn-new-question">New question</button>
+          </div>
         </div>
 
-        <div class="grid split">
-          <label class="input-group">
-            <span>Filter by bank</span>
-            <select id="question-filter-bank">
-              <option value="all">All banks</option>
-            </select>
-          </label>
-          <label class="input-group">
-            <span>Search stems/topics</span>
-            <input id="question-filter-text" placeholder="Search questions" />
-          </label>
+        <div class="sticky-controls">
+          <div class="grid split">
+            <label class="input-group">
+              <span>Filter by bank</span>
+              <select id="question-filter-bank">
+                <option value="all">All banks</option>
+              </select>
+            </label>
+            <label class="input-group">
+              <span>Search stems/topics</span>
+              <input id="question-filter-text" placeholder="Search questions" />
+            </label>
+          </div>
         </div>
 
         <div class="question-form">
@@ -246,7 +280,7 @@
           <p class="hint" id="question-status"></p>
         </div>
 
-        <div class="panel">
+        <div class="panel" id="import">
           <div class="panel-head">
             <div>
               <p class="overline">Import</p>
