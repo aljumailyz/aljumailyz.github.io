@@ -192,6 +192,20 @@ const explainQuestion = async () => {
   state.explainLoading = true;
   showExplainOverlay('Requesting explanation…');
   try {
+    if (supabaseAvailable()) {
+      const client = supabaseClient();
+      const { data, error } = await client.functions.invoke('ai-explain', {
+        body: { question: q.stem, answers, correctIndex },
+      });
+      if (error) {
+        if (DOM.explainStatus) DOM.explainStatus.textContent = `AI explain failed: ${error.message}`;
+        return;
+      }
+      const text = data?.explanation || 'No response';
+      if (DOM.explainStatus) DOM.explainStatus.textContent = '';
+      if (DOM.explainCopy) DOM.explainCopy.textContent = text;
+      return;
+    }
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
