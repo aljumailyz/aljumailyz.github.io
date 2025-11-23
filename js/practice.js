@@ -104,7 +104,6 @@ const hideExplainOverlay = () => {
 const getPublicAIKey = () => ''; // disabled; use Supabase-stored key instead
 const getPublicAIModel = () => '@preset/ai-explainer';
 let cachedAIKey = null;
-let cachedAIModel = null;
 
 const sanitizeModel = (model) => {
   if (!model || typeof model !== 'string') return '@preset/ai-explainer';
@@ -125,15 +124,14 @@ const updateExplainAvailability = () => {
 };
 
 const fetchAIKeyFromSupabase = async () => {
-  if (cachedAIKey) return { key: cachedAIKey, model: cachedAIModel || getPublicAIModel() };
+  if (cachedAIKey) return { key: cachedAIKey, model: getPublicAIModel() };
   if (!supabaseAvailable()) return { key: '', model: getPublicAIModel() };
   try {
     const client = supabaseClient();
     const { data, error } = await client.from('ai_keys').select('key, model').eq('id', 'public').maybeSingle();
     if (!error && data?.key) {
       cachedAIKey = data.key;
-      cachedAIModel = sanitizeModel(data.model);
-      return { key: cachedAIKey, model: cachedAIModel };
+      return { key: cachedAIKey, model: getPublicAIModel() };
     }
   } catch (_err) {
     // fall back silently
@@ -333,7 +331,8 @@ const explainQuestion = async () => {
     DOM.btnExplain.classList.add('disabled');
   }
   try {
-    const model = sanitizeModel(publicModel || getPublicAIModel());
+    // Force a single model to avoid OpenRouter models-array errors.
+    const model = getPublicAIModel();
     const prompt = [
       'You are a concise medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 180 words.',
       `Question: ${q.stem}`,
