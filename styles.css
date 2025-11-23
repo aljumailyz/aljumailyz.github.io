@@ -1077,6 +1077,34 @@ textarea {
   flex-shrink: 0;
 }
 
+.payment-box {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme='dark'] .payment-box {
+  background: rgba(18, 29, 51, 0.5);
+}
+
+.payment-title {
+  margin: 0 0 6px 0;
+  font-weight: 700;
+}
+
+.payment-box p {
+  margin: 4px 0;
+}
+
+.fine-print {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
 /* Access gate overlay */
 .access-overlay {
   position: fixed;
