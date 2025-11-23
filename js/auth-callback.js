@@ -26,7 +26,9 @@ const redirectHome = () => {
 const handleCodeFlow = async (client, code) => {
   setStatus('Confirming your email…', 'Finishing your signup.');
   const { error } = await client.auth.exchangeCodeForSession(code);
-  if (error) throw new Error(error.message || 'Unable to confirm email.');
+  if (error) {
+    throw new Error(error.message || 'Unable to confirm email.');
+  }
   setStatus('Email verified', 'Redirecting you to the app…');
   redirectHome();
 };
@@ -80,7 +82,17 @@ const run = async () => {
   try {
     const code = searchParams.get('code') || hashParams.get('code');
     if (code) {
-      await handleCodeFlow(client, code);
+      try {
+        await handleCodeFlow(client, code);
+        return;
+      } catch (err) {
+        if ((err?.message || '').toLowerCase().includes('code and code verifier')) {
+          // Fallback: ask user to request a new email (usually caused by opening link in a different browser/device).
+          fail('Link invalid. Open it in the same browser you signed up with or request a new verification email.');
+          return;
+        }
+        throw err;
+      }
       return;
     }
 

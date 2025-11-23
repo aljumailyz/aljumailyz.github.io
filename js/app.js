@@ -143,7 +143,9 @@ const enforceAccess = () => {
   const email = state.user?.email?.toLowerCase() || '';
   const allowed = getAllowedEmails();
   const hasAccess = email && allowed.includes(email);
-  const message = hasAccess ? '' : 'Please contact Zaid to enable access.';
+  const message = hasAccess
+    ? ''
+    : 'This website runs on your subscription payments — 29.99 TL/month. Include your signup email in the payment reference and send the receipt to Zaid.';
   setDashStatus(message);
   if (!hasAccess) {
     DOM.btnStart?.setAttribute('disabled', 'disabled');

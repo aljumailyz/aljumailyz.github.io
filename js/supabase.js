@@ -20,8 +20,8 @@ export const supabaseClient = () => {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
-      // Explicitly set flow type to avoid undefined this.flowType issues in Safari/older browsers.
-      flowType: 'pkce',
+      // Use implicit to avoid PKCE verifier issues in multi-tab/mobile email flows.
+      flowType: 'implicit',
     },
   });
   return client;
