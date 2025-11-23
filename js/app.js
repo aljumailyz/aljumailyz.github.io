@@ -190,13 +190,23 @@ const hideLoading = () => {
 };
 
 const showAccessOverlay = (message) => {
-  const overlay = document.getElementById('access-overlay');
-  const msg = document.getElementById('access-message');
-  if (msg && message) msg.textContent = message;
-  overlay?.classList.remove('hidden');
+  if (showAccessOverlay.timer) {
+    clearTimeout(showAccessOverlay.timer);
+    showAccessOverlay.timer = null;
+  }
+  showAccessOverlay.timer = setTimeout(() => {
+    const overlay = document.getElementById('access-overlay');
+    const msg = document.getElementById('access-message');
+    if (msg && message) msg.textContent = message;
+    overlay?.classList.remove('hidden');
+  }, 400); // brief delay to avoid flashing for authorized users
 };
 
 const hideAccessOverlay = () => {
+  if (showAccessOverlay.timer) {
+    clearTimeout(showAccessOverlay.timer);
+    showAccessOverlay.timer = null;
+  }
   const overlay = document.getElementById('access-overlay');
   overlay?.classList.add('hidden');
 };
