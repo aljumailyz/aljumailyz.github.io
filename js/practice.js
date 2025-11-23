@@ -101,6 +101,17 @@ const hideExplainOverlay = () => {
   if (DOM.explainOverlay) DOM.explainOverlay.classList.add('hidden');
 };
 
+const updateExplainAvailability = () => {
+  const hasEndpoint = Boolean(getExplainEndpoint());
+  const disabled = !hasEndpoint;
+  if (DOM.btnExplain) {
+    DOM.btnExplain.classList.toggle('disabled', disabled);
+    DOM.btnExplain.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    if (!state.explainLoading) DOM.btnExplain.textContent = disabled ? 'Explain (setup needed)' : 'Explain';
+  }
+  if (DOM.aiHint) DOM.aiHint.textContent = hasEndpoint ? 'AI' : 'Set config.js';
+};
+
 const getExplainEndpoint = () => {
   const base = window.__SUPABASE_CONFIG?.supabaseUrl?.replace(/\/$/, '');
   if (!base) return null;
@@ -211,6 +222,7 @@ const renderPractice = () => {
     if (DOM.sessionTimer) DOM.sessionTimer.textContent = '--';
     if (DOM.timerDisplay) DOM.timerDisplay.textContent = '--';
     if (DOM.miniTimer) DOM.miniTimer.textContent = '--';
+    updateExplainAvailability();
     return;
   }
   const q = questions[current];
@@ -271,6 +283,7 @@ const renderPractice = () => {
     DOM.btnFlagQuestion.setAttribute('aria-pressed', submission.flagged ? 'true' : 'false');
     DOM.btnFlagQuestion.textContent = submission.flagged ? '⚑ Flagged' : '⚑ Flag';
   }
+  updateExplainAvailability();
 };
 
 const explainQuestion = async () => {
