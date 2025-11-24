@@ -637,19 +637,26 @@ const initRealtime = () => {
 };
 
 const applyOldUI = (enabled) => {
-  document.body.classList.toggle('old-fashioned', enabled);
-  if (DOM.menuOldUI) DOM.menuOldUI.textContent = enabled ? 'Old-fashioned view: On' : 'Old-fashioned view: Off';
-  try {
-    localStorage.setItem(OLD_UI_KEY, enabled ? '1' : '0');
-  } catch (err) {
-    // ignore
+  const helper = window.examforgePrefs?.oldFashioned;
+  if (helper?.setEnabled) helper.setEnabled(enabled);
+  else {
+    document.documentElement.classList.toggle('old-fashioned', enabled);
+    document.body.classList.toggle('old-fashioned', enabled);
+    try {
+      localStorage.setItem(OLD_UI_KEY, enabled ? '1' : '0');
+    } catch (_err) {
+      // ignore
+    }
   }
+  if (DOM.menuOldUI) DOM.menuOldUI.textContent = enabled ? 'Old-fashioned view: On' : 'Old-fashioned view: Off';
 };
 
 const loadOldUI = () => {
+  const helper = window.examforgePrefs?.oldFashioned;
+  if (helper?.isEnabled) return helper.isEnabled();
   try {
     return localStorage.getItem(OLD_UI_KEY) === '1';
-  } catch (err) {
+  } catch (_err) {
     return false;
   }
 };
@@ -1082,7 +1089,7 @@ const init = async () => {
   DOM.menuProfile?.addEventListener('click', () => (window.location.href = 'profile.html'));
   DOM.menuSignout?.addEventListener('click', signOut);
   DOM.menuTheme?.addEventListener('click', toggleTheme);
-  DOM.menuOldUI?.addEventListener('click', () => applyOldUI(!document.body.classList.contains('old-fashioned')));
+  DOM.menuOldUI?.addEventListener('click', () => applyOldUI(!loadOldUI()));
   document.addEventListener('click', (e) => {
     if (!DOM.menuPanel || !DOM.menuToggle) return;
     if (DOM.menuPanel.contains(e.target) || DOM.menuToggle.contains(e.target)) return;
