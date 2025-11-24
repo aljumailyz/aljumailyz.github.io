@@ -176,6 +176,21 @@ const setDashStatus = (message = '') => {
   else hideAccessOverlay();
 };
 
+const updateMembershipUI = () => {
+  const premium = hasPremiumAccess();
+  if (DOM.menuPremium) {
+    DOM.menuPremium.textContent = premium ? 'Premium: Active' : 'Premium: Standard';
+    DOM.menuPremium.className = `pill ${premium ? 'tone-accent' : 'tone-soft'}`;
+  }
+  if (DOM.profileMembership) {
+    DOM.profileMembership.textContent = premium ? 'Premium Membership' : 'Standard Membership';
+    DOM.profileMembership.className = `pill ${premium ? 'tone-accent' : 'tone-soft'}`;
+  }
+  if (DOM.premiumUpload) {
+    DOM.premiumUpload.classList.toggle('hidden', !premium);
+  }
+};
+
 const updateLoginStreak = () => {
   const email = state.user?.email?.toLowerCase() || '';
   if (!email) return;
@@ -220,19 +235,7 @@ const enforceAccess = () => {
     DOM.menuSubscription.textContent = hasAccess ? 'Subscription active' : 'No subscription';
     DOM.menuSubscription.className = `pill ${hasAccess ? 'tone-accent' : 'tone-soft'}`;
   }
-  if (DOM.menuPremium) {
-    const premium = hasPremiumAccess();
-    DOM.menuPremium.textContent = premium ? 'Premium: Active' : 'Premium: Standard';
-    DOM.menuPremium.className = `pill ${premium ? 'tone-accent' : 'tone-soft'}`;
-  }
-  if (DOM.profileMembership) {
-    const premium = hasPremiumAccess();
-    DOM.profileMembership.textContent = premium ? 'Premium Membership' : 'Standard Membership';
-    DOM.profileMembership.className = `pill ${premium ? 'tone-accent' : 'tone-soft'}`;
-  }
-  if (DOM.premiumUpload) {
-    DOM.premiumUpload.classList.toggle('hidden', !hasPremiumAccess());
-  }
+  updateMembershipUI();
   if (!hasAccess) {
     DOM.btnStart?.setAttribute('disabled', 'disabled');
     DOM.bankTable?.querySelectorAll('input[type="checkbox"]')?.forEach((cb) => cb.setAttribute('disabled', 'disabled'));
@@ -852,6 +855,7 @@ const loadAccessGrants = async () => {
   } catch (err) {
     // ignore
   }
+  updateMembershipUI();
 };
 
 const loadLocalBanks = () => {
