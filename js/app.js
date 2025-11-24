@@ -44,6 +44,7 @@ const DOM = {
   profileLast: document.getElementById('profile-last'),
   profileYear: document.getElementById('profile-year'),
   profilePassword: document.getElementById('profile-password'),
+  profileMembership: document.getElementById('profile-membership'),
   btnSaveProfile: document.getElementById('btn-save-profile'),
   btnChangePassword: document.getElementById('btn-change-password'),
   profileStatus: document.getElementById('profile-status'),
@@ -52,6 +53,7 @@ const DOM = {
   statAccuracy: document.getElementById('stat-accuracy'),
   statAnswered: document.getElementById('stat-answered'),
   statTime: document.getElementById('stat-time'),
+  statStreak: document.getElementById('stat-streak'),
   progressAccuracy: document.getElementById('progress-accuracy'),
   progressAnswered: document.getElementById('progress-answered'),
   progressTime: document.getElementById('progress-time'),
@@ -91,6 +93,7 @@ const state = {
     accuracy: 0,
     answered: 0,
     time: 0,
+    streak: 0,
   },
   access: {
     allowed: [],
@@ -153,6 +156,7 @@ const hasPremiumAccess = () => {
 const SELECTED_BANKS_KEY = 'examforge.selectedBanks';
 const OLD_UI_KEY = 'examforge.ui.oldschool';
 const LOCAL_BANKS_KEY = 'examforge.localBanks';
+const STREAK_KEY = 'examforge.loginStreaks';
 
 // Fisher-Yates shuffle
 const shuffleArray = (arr = []) => {
@@ -172,6 +176,38 @@ const setDashStatus = (message = '') => {
   else hideAccessOverlay();
 };
 
+const updateLoginStreak = () => {
+  const email = state.user?.email?.toLowerCase() || '';
+  if (!email) return;
+  const today = new Date().toISOString().slice(0, 10);
+  let map = {};
+  try {
+    map = JSON.parse(localStorage.getItem(STREAK_KEY) || '{}') || {};
+  } catch (_err) {
+    map = {};
+  }
+  const entry = map[email] || { count: 0, last: '' };
+  const last = entry.last;
+  let count = entry.count || 0;
+  if (last === today) {
+    // same day, keep count
+  } else {
+    const lastDate = last ? new Date(last) : null;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = lastDate && lastDate.toISOString().slice(0, 10) === yesterday.toISOString().slice(0, 10);
+    count = isYesterday ? count + 1 : 1;
+    map[email] = { count, last: today };
+    try {
+      localStorage.setItem(STREAK_KEY, JSON.stringify(map));
+    } catch (_err) {
+      // ignore
+    }
+  }
+  state.stats.streak = count;
+  if (DOM.statStreak) DOM.statStreak.textContent = `${count} day${count === 1 ? '' : 's'}`;
+};
+
 const enforceAccess = () => {
   const email = state.user?.email?.toLowerCase() || '';
   const allowed = getAllowedEmails();
@@ -188,6 +224,11 @@ const enforceAccess = () => {
     const premium = hasPremiumAccess();
     DOM.menuPremium.textContent = premium ? 'Premium: Active' : 'Premium: Standard';
     DOM.menuPremium.className = `pill ${premium ? 'tone-accent' : 'tone-soft'}`;
+  }
+  if (DOM.profileMembership) {
+    const premium = hasPremiumAccess();
+    DOM.profileMembership.textContent = premium ? 'Premium Membership' : 'Standard Membership';
+    DOM.profileMembership.className = `pill ${premium ? 'tone-accent' : 'tone-soft'}`;
   }
   if (DOM.premiumUpload) {
     DOM.premiumUpload.classList.toggle('hidden', !hasPremiumAccess());
@@ -711,6 +752,7 @@ const checkSession = async () => {
   if (data?.session?.user) {
     state.user = data.session.user;
     setAuthUI('');
+    updateLoginStreak();
     await loadStats();
     await loadAccessGrants();
     enforceAccess();
@@ -719,6 +761,7 @@ const checkSession = async () => {
   client.auth.onAuthStateChange((_event, session) => {
     state.user = session?.user ?? null;
     setAuthUI('');
+    if (session?.user) updateLoginStreak();
     loadStats();
     if (session?.user) {
       loadAccessGrants();
@@ -846,10 +889,11 @@ const mergeLocalBanks = (banks = []) => {
 };
 
 const refreshStats = () => {
-  const { accuracy, answered, time } = state.stats;
+  const { accuracy, answered, time, streak } = state.stats;
   if (DOM.statAccuracy) DOM.statAccuracy.textContent = accuracy ? `${accuracy}%` : '—';
   if (DOM.statAnswered) DOM.statAnswered.textContent = answered ? answered : '—';
   if (DOM.statTime) DOM.statTime.textContent = time ? `${time} min` : '—';
+  if (DOM.statStreak) DOM.statStreak.textContent = streak ? `${streak} day${streak === 1 ? '' : 's'}` : '—';
   setProgress(DOM.progressAccuracy, accuracy || 0);
   setProgress(DOM.progressAnswered, Math.min(((answered || 0) / 200) * 100, 100));
   setProgress(DOM.progressTime, Math.min(((time || 0) / 300) * 100, 100));
@@ -1272,6 +1316,7 @@ const init = async () => {
   DOM.btnSignoutDash?.addEventListener('click', signOut);
   DOM.accessSignout?.addEventListener('click', signOut);
   DOM.btnProfile?.addEventListener('click', () => setDashStatus('Profile coming soon.'));
+  if (state.user) updateLoginStreak();
   DOM.btnStart?.addEventListener('click', startPracticeRedirect);
   DOM.practiceOptions?.addEventListener('click', handleOptionClick);
   DOM.btnSubmitQuestion?.addEventListener('click', handleSubmitQuestion);

@@ -2273,34 +2273,34 @@ body.old-fashioned .ai-abbr {
 
 /* Compact density */
 body.compact:not(.old-fashioned) .panel {
-  padding: 14px;
+  padding: 10px;
 }
 
 body.compact:not(.old-fashioned) .nav-panel {
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 body.compact:not(.old-fashioned) .list-item {
-  padding: 10px;
-  gap: 6px;
+  padding: 8px;
+  gap: 5px;
 }
 
 body.compact:not(.old-fashioned) .question-card {
-  padding: 10px;
+  padding: 8px;
   gap: 4px;
 }
 
 body.compact:not(.old-fashioned) .input-group {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 body.compact:not(.old-fashioned) .actions {
-  margin-top: 8px;
-  gap: 8px;
+  margin-top: 6px;
+  gap: 6px;
 }
 
 body.compact:not(.old-fashioned) .practice-layout {
-  gap: 10px;
+  gap: 8px;
 }
 
 .sparkline {
