@@ -1559,6 +1559,7 @@ const init = async () => {
   DOM.bankFilterYear?.addEventListener('change', renderBanks);
   DOM.bankFilterSubject?.addEventListener('change', renderBanks);
   DOM.bankSort?.addEventListener('change', renderBanks);
+  DOM.accessList?.addEventListener('click', handleListClick);
   DOM.questionFilterBank?.addEventListener('change', renderQuestions);
   DOM.questionFilterText?.addEventListener('input', renderQuestions);
   DOM.dashboard?.addEventListener('click', handleCollapseClick);

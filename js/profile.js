@@ -12,6 +12,7 @@ const DOM = {
   nameDisplay: document.getElementById('profile-name'),
   emailDisplay: document.getElementById('profile-email'),
   yearBadge: document.getElementById('profile-year-badge'),
+  membership: document.getElementById('profile-membership'),
   toastStack: document.getElementById('toast-stack'),
   yearPills: document.getElementById('year-pills'),
   accuracy: document.getElementById('profile-accuracy'),
@@ -170,6 +171,11 @@ const hydrate = () => {
   if (DOM.nameDisplay) DOM.nameDisplay.textContent = fullName;
   if (DOM.emailDisplay) DOM.emailDisplay.textContent = state.user?.email || '';
   if (DOM.yearBadge) DOM.yearBadge.textContent = meta.year || 'Year —';
+  const premium = meta.subscription === 'premium';
+  if (DOM.membership) {
+    DOM.membership.textContent = premium ? 'Premium Membership' : 'Standard Membership';
+    DOM.membership.className = `pill ${premium ? 'tone-accent' : 'tone-soft'}`;
+  }
   if (DOM.first) DOM.first.value = meta.first_name || '';
   if (DOM.last) DOM.last.value = meta.last_name || '';
   if (DOM.year) DOM.year.value = meta.year || '';
