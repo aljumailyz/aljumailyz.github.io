@@ -255,6 +255,11 @@ const loadBanks = async () => {
   state.banksLoading = true;
   setDashStatus('Loading banks…');
   showLoading('Loading banks…');
+  const fetchBanks = async (client, withTags = true) =>
+    client
+      .from('banks')
+      .select(withTags ? 'id, name, year, subject, tags' : 'id, name, year, subject')
+      .order('created_at', { ascending: false });
   if (!supabaseAvailable()) {
     stateBanks.banks = sampleBanks;
     renderBanks();
@@ -273,10 +278,20 @@ const loadBanks = async () => {
     return;
   }
   loadAccessGrants(); // warm access list alongside banks
-  const { data, error } = await client
-    .from('banks')
-    .select('id, name, year, subject, tags')
-    .order('created_at', { ascending: false });
+  let data = null;
+  let error = null;
+  try {
+    const res = await fetchBanks(client, true);
+    data = res.data;
+    error = res.error;
+    if (error?.code === '42703') {
+      const retry = await fetchBanks(client, false);
+      data = retry.data;
+      error = retry.error;
+    }
+  } catch (err) {
+    error = err;
+  }
   if (error) {
     console.warn('Banks load error', error);
     setDashStatus(`Could not load banks (${error.message || error.code || 'RLS/permissions?'}).`);

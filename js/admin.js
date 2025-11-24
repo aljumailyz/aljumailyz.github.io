@@ -71,6 +71,7 @@ const DOM = {
 
 const COLLAPSE_STORAGE_KEY = 'examforge.admin.collapsed';
 const DENSITY_STORAGE_KEY = 'examforge.admin.density';
+let bankTagsSupported = true;
 
 const state = {
   user: null,
@@ -228,15 +229,30 @@ const updateBankCounts = () => {
 const loadBanks = async () => {
   const client = getClient();
   if (!client) return;
-  const { data, error } = await client.from('banks').select('*').order('created_at', { ascending: false });
+  let data = null;
+  let error = null;
+  try {
+    ({ data, error } = await client.from('banks').select('*').order('created_at', { ascending: false }));
+    if (error?.code === '42703') {
+      bankTagsSupported = false;
+      ({ data, error } = await client
+        .from('banks')
+        .select('id, name, year, subject, description')
+        .order('created_at', { ascending: false }));
+    } else {
+      bankTagsSupported = true;
+    }
+  } catch (err) {
+    error = err;
+  }
   if (error) {
-    setDashStatus(`Banks error: ${error.message}`);
+    setDashStatus(`Banks error: ${error.message || error.code || error}`);
     return;
   }
   state.banks = (data || []).map((b) => ({
     ...b,
     subject: b.subject || '',
-    tags: normalizeTags(b.tags || []),
+    tags: bankTagsSupported ? normalizeTags(b.tags || []) : [],
   }));
   state.selectedBanks = state.selectedBanks.filter((id) => state.banks.some((b) => b.id === id));
   updateBankCounts();
@@ -437,6 +453,15 @@ const parseTagsInput = (text = '') => normalizeTags(`${text}`.split(','));
 
 const tagsToString = (tags = []) => normalizeTags(tags).join(', ');
 
+const stripTagsIfUnsupported = (payload) => {
+  if (!bankTagsSupported && payload && typeof payload === 'object') {
+    const copy = { ...payload };
+    delete copy.tags;
+    return copy;
+  }
+  return payload;
+};
+
 const resetBankForm = () => {
   if (DOM.bankNameInput) DOM.bankNameInput.value = '';
   if (DOM.bankYearInput) DOM.bankYearInput.value = '';
@@ -448,13 +473,20 @@ const resetBankForm = () => {
 const saveBank = async (name, year = '', subject = '', description = '', id = null, tags = []) => {
   const client = getClient();
   if (!client) return;
-  const payload = { name, year: normalizeYear(year), subject: normalizeSubject(subject), description, tags: normalizeTags(tags) };
+  let payload = { name, year: normalizeYear(year), subject: normalizeSubject(subject), description, tags: normalizeTags(tags) };
+  payload = stripTagsIfUnsupported(payload);
   if (id) payload.id = id;
-  const { error } = await client.from('banks').upsert(payload);
+  let { error } = await client.from('banks').upsert(payload);
+  if (error?.code === '42703') {
+    bankTagsSupported = false;
+    payload = stripTagsIfUnsupported(payload);
+    ({ error } = await client.from('banks').upsert(payload));
+  }
   if (error) {
     setDashStatus(`Save bank failed: ${error.message}`);
     return;
   }
+  bankTagsSupported = bankTagsSupported && 'tags' in payload;
   setDashStatus('Bank saved.');
   await loadBanks();
   resetBankForm();
@@ -490,11 +522,18 @@ const exportBanks = async () => {
     return;
   }
   setDashStatus('Exporting banks...');
-  try {
-    const { data: banks, error: bankError } = await client
+  const selectBanks = async (withTags = true) =>
+    client
       .from('banks')
-      .select('id, name, year, subject, description, tags')
+      .select(withTags ? 'id, name, year, subject, description, tags' : 'id, name, year, subject, description')
       .order('created_at', { ascending: false });
+  try {
+    let banksRes = await selectBanks(true);
+    if (banksRes.error?.code === '42703') {
+      bankTagsSupported = false;
+      banksRes = await selectBanks(false);
+    }
+    const { data: banks, error: bankError } = banksRes;
     if (bankError) {
       setDashStatus(`Export failed: ${bankError.message}`);
       return;
@@ -1094,13 +1133,13 @@ const importExam = async (exam) => {
   if (!bankId) {
     const { data: bankRows, error: bankErr } = await client
       .from('banks')
-      .insert({
+      .insert(stripTagsIfUnsupported({
         name: exam.bank.name,
         description: exam.bank.description || '',
         year: normalizeYear(exam.bank.year),
         subject: normalizeSubject(exam.bank.subject),
         tags: normalizeTags(exam.bank.tags || []),
-      })
+      }))
       .select()
       .maybeSingle();
     if (bankErr || !bankRows) throw new Error(bankErr?.message || 'Bank insert failed');
@@ -1108,12 +1147,12 @@ const importExam = async (exam) => {
   } else if (exam.bank.year || exam.bank.subject || exam.bank.description) {
     await client
       .from('banks')
-      .update({
+      .update(stripTagsIfUnsupported({
         year: normalizeYear(exam.bank.year) || existing.year || null,
         subject: normalizeSubject(exam.bank.subject) || existing.subject || null,
         description: exam.bank.description || existing.description || null,
         tags: normalizeTags(exam.bank.tags || existing.tags || []),
-      })
+      }))
       .eq('id', bankId);
   }
   const payload = exam.questions.map((q) => ({ ...q, bank_id: bankId }));
@@ -1285,6 +1324,10 @@ const setAccess = async (email, allowed, expiresAt = null) => {
 const applyTagsToBanks = async (mode = 'add') => {
   const ids = state.selectedBanks || [];
   const tags = parseTagsInput(DOM.bankBulkTagsInput?.value || '');
+  if (!bankTagsSupported) {
+    setDashStatus('Tag updates unavailable until the tags column is added to banks table.');
+    return;
+  }
   if (!ids.length) {
     setDashStatus('Select one or more banks first.');
     return;
