@@ -156,9 +156,20 @@
               </select>
             </label>
             <div class="input-group">
+              <span>Selection</span>
+              <div class="actions">
+                <button class="ghost small" id="btn-select-all-banks" type="button">Select all</button>
+                <button class="ghost small" id="btn-clear-banks" type="button">Deselect all</button>
+              </div>
+            </div>
+            <div class="input-group">
               <span>Banks (select one or more)</span>
               <div class="bank-table compact" id="bank-table"></div>
             </div>
+            <label class="input-group">
+              <span>Number of questions</span>
+              <input id="input-question-count" type="number" min="1" inputmode="numeric" placeholder="All available">
+            </label>
             <label class="toggle">
               <input type="checkbox" id="select-timed">
               Timed mode (30s per question)

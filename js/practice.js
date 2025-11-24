@@ -141,9 +141,9 @@ const formatExplanation = (text) => {
   return safe.replace(/\(([A-Z]{2,6})\)/g, '(<span class="ai-abbr">$1</span>)');
 };
 
-const buildPrompt = (stem, answers, correctIndex, followUp = '', wordLimit = 180) => {
+const buildPrompt = (stem, answers, correctIndex, followUp = '', wordLimit = 400) => {
   return [
-    `You are a concise medical explainer. Spell out abbreviations on first mention. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under ${wordLimit} words.`,
+    `You are a medical explainer for exam prep. Spell out abbreviations on first mention. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under ${wordLimit} words.`,
     `Question: ${stem}`,
     'Answers:',
     answers.map((a, i) => `${i + 1}. ${a}${i === correctIndex ? ' (correct)' : ''}`).join('\n'),
@@ -218,7 +218,10 @@ const setAIMode = (mode) => {
   const next = mode === 'detailed' ? 'detailed' : 'concise';
   state.aiMode = next;
   updateAIModeBadge();
-  if (DOM.btnAIMode) DOM.btnAIMode.textContent = next === 'detailed' ? 'Detailed' : 'Concise';
+  if (DOM.btnAIMode) {
+    DOM.btnAIMode.dataset.mode = next;
+    DOM.btnAIMode.setAttribute('aria-pressed', next === 'detailed' ? 'true' : 'false');
+  }
   try {
     localStorage.setItem(AI_MODE_KEY, next);
   } catch (err) {
@@ -434,8 +437,8 @@ const explainQuestion = async () => {
   const q = questions[current];
   const answers = q.answers?.map((a) => a.text || '') || [];
   const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
-  const wordLimit = state.aiMode === 'detailed' ? 400 : 180;
-  const maxTokens = state.aiMode === 'detailed' ? 1100 : 550;
+  const wordLimit = state.aiMode === 'detailed' ? 700 : 400;
+  const maxTokens = state.aiMode === 'detailed' ? 2200 : 1200;
   if (state.explainLoading) {
     showToast('Please wait for the current explanation to finish.', 'error');
     return;
@@ -510,8 +513,8 @@ const askFollowup = async () => {
     showExplainOverlay('No AI key available. Add a key to Supabase table ai_keys (id=public).');
     return;
   }
-  const wordLimit = state.aiMode === 'detailed' ? 400 : 180;
-  const maxTokens = state.aiMode === 'detailed' ? 1100 : 550;
+  const wordLimit = state.aiMode === 'detailed' ? 700 : 400;
+  const maxTokens = state.aiMode === 'detailed' ? 2200 : 1200;
   showExplainOverlay('Requesting follow-up…');
   DOM.aiLoader?.classList.remove('hidden');
   try {
@@ -613,6 +616,10 @@ const loadQuestions = async (bankIds = [], bankNames = [], timedSelection = fals
     ];
   }
   questions = shuffleArray(questions);
+  const desiredCount = Number(meta.questionCount);
+  if (Number.isFinite(desiredCount) && desiredCount > 0) {
+    questions = questions.slice(0, Math.min(desiredCount, questions.length));
+  }
   state.practice = {
     bankName: title,
     bankId: ids.join(','),
@@ -1004,6 +1011,7 @@ const init = async () => {
   await loadQuestions(bankIds, selection.bankNames || [], selection.timed, {
     years: selection.years || [],
     subjects: selection.subjects || [],
+    questionCount: selection.questionCount,
   });
 };
 

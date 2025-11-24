@@ -11,7 +11,7 @@ const TOKEN_LIMIT = 10000; // approx tokens per user per rolling hour
 const QUESTION_CHAR_LIMIT = 1200;
 const ANSWER_CHAR_LIMIT = 400;
 const MAX_ANSWERS = 6;
-const MAX_OUTPUT_TOKENS = 800;
+const MAX_OUTPUT_TOKENS = 2200;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ORIGIN_ALLOW_ALL,
@@ -161,7 +161,7 @@ serve(async (req: Request) => {
   }
 
   const prompt = [
-    "You are a concise medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 180 words.",
+    "You are a medical explainer. Explain the correct answer, why the others are wrong, and briefly describe the underlying disease/pathology. Keep it under 700 words.",
     `Question: ${question.trim()}`,
     "Answers:",
     answerStrings.map((a: string, i: number) => `${i + 1}. ${a}${i === safeCorrectIndex ? " (correct)" : ""}`).join("\n"),

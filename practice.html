@@ -121,7 +121,11 @@
         </div>
         <div class="ai-mode">
           <span class="muted">Style:</span>
-          <button class="ghost small ai-mode-toggle" id="btn-ai-mode">Concise</button>
+          <button class="ai-toggle" id="btn-ai-mode" type="button" aria-pressed="false" data-mode="concise">
+            <span class="ai-toggle-label concise">Concise</span>
+            <span class="ai-toggle-label detailed">Detailed</span>
+            <span class="ai-toggle-thumb"></span>
+          </button>
         </div>
         <div class="followup-box">
           <label class="input-group">

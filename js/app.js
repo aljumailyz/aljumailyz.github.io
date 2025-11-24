@@ -21,6 +21,7 @@ const DOM = {
   bankSelect: document.getElementById('bank-select'),
   bankHint: document.getElementById('bank-hint'),
   subjectFilter: document.getElementById('subject-filter'),
+  questionCount: document.getElementById('input-question-count'),
   btnStart: document.getElementById('btn-start'),
   yearPillsFilter: document.getElementById('year-pills-filter'),
   bankTable: document.getElementById('bank-table'),
@@ -54,6 +55,8 @@ const DOM = {
   loadingOverlay: document.getElementById('loading-overlay'),
   loadingText: document.getElementById('loading-text'),
   btnRefreshBanks: document.getElementById('btn-refresh-banks'),
+  btnSelectAllBanks: document.getElementById('btn-select-all-banks'),
+  btnClearBanks: document.getElementById('btn-clear-banks'),
   accessSignout: document.getElementById('btn-access-signout'),
   practice: document.getElementById('practice'),
   practiceBank: document.getElementById('practice-bank'),
@@ -179,6 +182,8 @@ const startPracticeRedirect = () => {
     return;
   }
   const timedSelection = Boolean(DOM.selectTimed?.checked);
+  const questionCountValue = Number(DOM.questionCount?.value);
+  const questionCount = Number.isFinite(questionCountValue) && questionCountValue > 0 ? Math.floor(questionCountValue) : null;
   const banks = ids
     .map((id) => stateBanks.banks.find((b) => b.id === id) || sampleBanks.find((b) => b.id === id))
     .filter(Boolean);
@@ -193,6 +198,7 @@ const startPracticeRedirect = () => {
       timed: timedSelection,
       years,
       subjects,
+      questionCount,
     }),
   );
   window.location.href = 'practice.html';
@@ -325,8 +331,7 @@ const renderSubjectFilter = (banks = []) => {
   }
 };
 
-const renderBanks = () => {
-  if (!DOM.bankTable) return;
+const getFilteredBanks = () => {
   const banks = stateBanks.banks.length ? stateBanks.banks : sampleBanks;
   renderSubjectFilter(banks);
   const filter = getYearFilter();
@@ -349,6 +354,16 @@ const renderBanks = () => {
     if (subjDiff !== 0) return subjDiff;
     return a.name.localeCompare(b.name);
   });
+  return sorted;
+};
+
+const updateBankHint = (count) => {
+  if (DOM.bankHint) DOM.bankHint.textContent = count ? `${count} bank(s) selected.` : 'Select one or more banks.';
+};
+
+const renderBanks = () => {
+  if (!DOM.bankTable) return;
+  const sorted = getFilteredBanks();
   if (!sorted.length) {
     DOM.bankTable.innerHTML = '<p class="muted">No banks match your filters.</p>';
     return;
@@ -375,7 +390,7 @@ const renderBanks = () => {
     <thead><tr><th></th><th>Bank</th><th>Questions</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
-  if (DOM.bankHint) DOM.bankHint.textContent = selected.size ? `${selected.size} bank(s) selected.` : 'Select one or more banks.';
+  updateBankHint(selected.size);
 };
 
 const persistSelectedBanks = () => {
@@ -455,7 +470,22 @@ const handleBankTableClick = (event) => {
   else selected.delete(id);
   stateBanks.selected = Array.from(selected);
   persistSelectedBanks();
-  if (DOM.bankHint) DOM.bankHint.textContent = selected.size ? `${selected.size} bank(s) selected.` : 'Select one or more banks.';
+  updateBankHint(selected.size);
+  renderBanks();
+};
+
+const selectAllBanks = () => {
+  const banks = getFilteredBanks();
+  stateBanks.selected = banks.map((b) => b.id);
+  persistSelectedBanks();
+  updateBankHint(stateBanks.selected.length);
+  renderBanks();
+};
+
+const clearAllBanks = () => {
+  stateBanks.selected = [];
+  persistSelectedBanks();
+  updateBankHint(0);
   renderBanks();
 };
 
@@ -1090,6 +1120,8 @@ const init = async () => {
   DOM.menuSignout?.addEventListener('click', signOut);
   DOM.menuTheme?.addEventListener('click', toggleTheme);
   DOM.menuOldUI?.addEventListener('click', () => applyOldUI(!loadOldUI()));
+  DOM.btnSelectAllBanks?.addEventListener('click', selectAllBanks);
+  DOM.btnClearBanks?.addEventListener('click', clearAllBanks);
   document.addEventListener('click', (e) => {
     if (!DOM.menuPanel || !DOM.menuToggle) return;
     if (DOM.menuPanel.contains(e.target) || DOM.menuToggle.contains(e.target)) return;
