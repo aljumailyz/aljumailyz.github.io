@@ -142,10 +142,23 @@
               <span>Subject</span>
               <input id="bank-subject" placeholder="Cardiology, Surgery, Psychiatry…" />
             </label>
+            <label class="input-group">
+              <span>Tags (comma separated)</span>
+              <input id="bank-tags" placeholder="cardio, surgery, pediatrics" />
+            </label>
             <div class="actions">
               <button class="primary" id="btn-save-bank">Save bank</button>
               <button class="ghost" id="btn-reset-bank">Reset</button>
             </div>
+          </div>
+          <div class="input-group">
+            <span>Bulk tags for selected banks</span>
+            <div class="actions">
+              <input id="bank-bulk-tags" placeholder="comma-separated tags" />
+              <button class="ghost small" id="btn-add-tags" type="button">Add tags</button>
+              <button class="ghost small" id="btn-remove-tags" type="button">Remove tags</button>
+            </div>
+            <p class="hint" id="bank-selection-hint">0 bank(s) selected</p>
           </div>
           <div class="bank-list" id="bank-list"></div>
         </div>
@@ -257,8 +270,13 @@
             <textarea id="question-stem" rows="3" placeholder="Question prompt"></textarea>
           </label>
           <label class="input-group">
-            <span>Image URL (optional)</span>
-            <input id="question-image" placeholder="https://..." />
+            <span>Image URLs (comma separated, optional)</span>
+            <input id="question-image" placeholder="https://... , https://..." />
+          </label>
+          <label class="input-group">
+            <span>Upload images (max 3, 5 MB each)</span>
+            <input id="question-images" type="file" accept="image/*" multiple />
+            <p class="hint">Uploads save to Supabase storage and become public URLs.</p>
           </label>
           <label class="input-group">
             <span>Number of answers (1–6)</span>

@@ -6,7 +6,7 @@ const DOM = {
   miniProgress: document.getElementById('mini-progress'),
   miniTimer: document.getElementById('mini-timer'),
   practiceStem: document.getElementById('practice-stem'),
-  practiceImage: document.getElementById('practice-image'),
+  practiceImages: document.getElementById('practice-images'),
   practiceOptions: document.getElementById('practice-options'),
   practiceStatus: document.getElementById('practice-status'),
   practiceNav: document.getElementById('practice-nav'),
@@ -69,6 +69,7 @@ const state = {
     sessionStartedAt: null,
     year: '',
     subject: '',
+    tags: [],
     reviewMode: false,
     reviewQueue: [],
   },
@@ -84,6 +85,17 @@ const shuffleArray = (arr = []) => {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+};
+
+const normalizeTags = (tags = []) => {
+  const list = Array.isArray(tags) ? tags : `${tags || ''}`.split(',');
+  return Array.from(
+    new Set(
+      list
+        .map((t) => `${t}`.trim())
+        .filter(Boolean),
+    ),
+  );
 };
 
 const setStatus = (msg = '') => {
@@ -352,7 +364,9 @@ const renderPractice = () => {
   if (state.practice.reviewMode && !state.practice.reviewQueue.length) state.practice.reviewMode = false;
   if (DOM.practiceBank) DOM.practiceBank.textContent = bankName || 'Practice';
   if (DOM.sessionBarBank) DOM.sessionBarBank.textContent = bankName || 'Bank';
-  const tagText = [state.practice.year, state.practice.subject].filter(Boolean).join(' • ');
+  const tagText = [state.practice.year, state.practice.subject, (state.practice.tags || []).join(', ')]
+    .filter(Boolean)
+    .join(' • ');
   if (DOM.sessionTags) DOM.sessionTags.textContent = tagText || '—';
   if (DOM.practiceProgress) DOM.practiceProgress.textContent = questions.length ? `${current + 1} / ${questions.length}` : '0 / 0';
   if (DOM.miniProgress) DOM.miniProgress.textContent = questions.length ? `${current + 1} / ${questions.length}` : '0 / 0';
@@ -368,13 +382,12 @@ const renderPractice = () => {
   const q = questions[current];
   const submission = submissions[current] || { selected: null, submitted: false, correct: null };
   if (DOM.practiceStem) DOM.practiceStem.textContent = q.stem;
-  if (DOM.practiceImage) {
-    if (q.imageUrl) {
-      DOM.practiceImage.src = q.imageUrl;
-      DOM.practiceImage.classList.remove('hidden');
-    } else {
-      DOM.practiceImage.classList.add('hidden');
-    }
+  if (DOM.practiceImages) {
+    const imgs = Array.isArray(q.images) ? q.images : q.imageUrl ? [q.imageUrl] : [];
+    DOM.practiceImages.innerHTML = imgs
+      .slice(0, 3)
+      .map((src) => `<img src="${src}" alt="Question image">`)
+      .join('');
   }
   if (DOM.practiceOptions) {
     const correctIdx = q.answers.findIndex((a) => a.isCorrect);
@@ -584,7 +597,7 @@ const loadQuestions = async (bankIds = [], bankNames = [], timedSelection = fals
   const nameList = Array.isArray(bankNames) ? bankNames : bankNames ? [bankNames] : [];
   const title = nameList.length > 1 ? `${nameList[0]} + ${nameList.length - 1} more` : nameList[0] || 'Practice';
   if (client && ids.length) {
-    const query = client.from('questions').select('id, stem, image_url, answers').order('created_at', { ascending: false });
+    const query = client.from('questions').select('id, stem, image_url, images, answers').order('created_at', { ascending: false });
     if (ids.length === 1) query.eq('bank_id', ids[0]);
     else query.in('bank_id', ids);
     const { data, error } = await query;
@@ -596,6 +609,7 @@ const loadQuestions = async (bankIds = [], bankNames = [], timedSelection = fals
         id: q.id,
         stem: q.stem,
         imageUrl: q.image_url,
+        images: normalizeImages(q.images || q.image_url || []),
         answers: shuffleArray(q.answers || []),
       }));
     } else {
@@ -632,6 +646,7 @@ const loadQuestions = async (bankIds = [], bankNames = [], timedSelection = fals
     sessionStartedAt: Date.now(),
     year: Array.isArray(meta.years) ? meta.years.join(', ') : meta.year || '',
     subject: Array.isArray(meta.subjects) ? meta.subjects.join(', ') : meta.subject || '',
+    tags: normalizeTags(meta.tags || []),
     reviewMode: false,
     reviewQueue: [],
   };
@@ -1012,6 +1027,7 @@ const init = async () => {
     years: selection.years || [],
     subjects: selection.subjects || [],
     questionCount: selection.questionCount,
+    tags: selection.tags || [],
   });
 };
 

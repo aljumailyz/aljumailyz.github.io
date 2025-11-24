@@ -21,6 +21,7 @@ const DOM = {
   bankSelect: document.getElementById('bank-select'),
   bankHint: document.getElementById('bank-hint'),
   subjectFilter: document.getElementById('subject-filter'),
+  tagFilter: document.getElementById('tag-filter'),
   questionCount: document.getElementById('input-question-count'),
   btnStart: document.getElementById('btn-start'),
   yearPillsFilter: document.getElementById('year-pills-filter'),
@@ -190,6 +191,7 @@ const startPracticeRedirect = () => {
   const bankNames = banks.map((b) => b.name);
   const years = Array.from(new Set(banks.map((b) => b.year).filter(Boolean)));
   const subjects = Array.from(new Set(banks.map((b) => b.subject).filter(Boolean)));
+  const tags = Array.from(new Set(banks.flatMap((b) => getBankTags(b))));
   localStorage.setItem(
     'examforge.nextPractice',
     JSON.stringify({
@@ -198,6 +200,7 @@ const startPracticeRedirect = () => {
       timed: timedSelection,
       years,
       subjects,
+      tags,
       questionCount,
     }),
   );
@@ -269,7 +272,10 @@ const loadBanks = async () => {
     return;
   }
   loadAccessGrants(); // warm access list alongside banks
-  const { data, error } = await client.from('banks').select('id, name, year, subject').order('created_at', { ascending: false });
+  const { data, error } = await client
+    .from('banks')
+    .select('id, name, year, subject, tags')
+    .order('created_at', { ascending: false });
   if (error) {
     console.warn('Banks load error', error);
     setDashStatus(`Could not load banks (${error.message || error.code || 'RLS/permissions?'}).`);
@@ -284,6 +290,7 @@ const loadBanks = async () => {
       year: b.year || '',
       subject: b.subject || '',
       questions: b.questions || 0,
+      tags: Array.isArray(b.tags) ? b.tags : [],
     }));
   }
   renderBanks();
@@ -309,6 +316,21 @@ const getBankSubject = (bank) => bank.subject || 'Unlabeled';
 
 const getSubjectFilter = () => DOM.subjectFilter?.value || 'all';
 
+const normalizeTags = (tags = []) => {
+  const list = Array.isArray(tags) ? tags : `${tags || ''}`.split(',');
+  return Array.from(
+    new Set(
+      list
+        .map((t) => `${t}`.trim())
+        .filter(Boolean),
+    ),
+  );
+};
+
+const getBankTags = (bank) => normalizeTags(bank?.tags || []);
+
+const getTagFilter = () => DOM.tagFilter?.value || 'all';
+
 const renderSubjectFilter = (banks = []) => {
   if (!DOM.subjectFilter) return;
   const current = DOM.subjectFilter.value || 'all';
@@ -331,17 +353,40 @@ const renderSubjectFilter = (banks = []) => {
   }
 };
 
+const renderTagFilter = (banks = []) => {
+  if (!DOM.tagFilter) return;
+  const current = DOM.tagFilter.value || 'all';
+  const tags = Array.from(
+    new Set(
+      (banks || [])
+        .flatMap((b) => getBankTags(b))
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+  const options = ['<option value="all">All tags</option>']
+    .concat(tags.map((t) => `<option value="${t}">${t}</option>`))
+    .join('');
+  DOM.tagFilter.innerHTML = options;
+  if (current && tags.includes(current)) {
+    DOM.tagFilter.value = current;
+  }
+};
+
 const getFilteredBanks = () => {
   const banks = stateBanks.banks.length ? stateBanks.banks : sampleBanks;
   renderSubjectFilter(banks);
+  renderTagFilter(banks);
   const filter = getYearFilter();
   const subjectFilter = getSubjectFilter();
+  const tagFilter = getTagFilter();
   const filtered = banks.filter((b) => {
     const yr = getBankYear(b);
     const subj = getBankSubject(b);
+    const tags = getBankTags(b);
     const yearMatches = filter === 'all' || yr === filter;
     const subjectMatches = subjectFilter === 'all' || subj === subjectFilter;
-    return yearMatches && subjectMatches;
+    const tagMatches = tagFilter === 'all' || tags.includes(tagFilter);
+    return yearMatches && subjectMatches && tagMatches;
   });
   const normalizeYearSort = (yr) => {
     const match = `${yr}`.match(/(\d+)/);
@@ -379,15 +424,19 @@ const renderBanks = () => {
               <strong>${b.name}</strong>
               ${getBankYear(b) && getBankYear(b) !== 'All' ? `<span class="pill tone-soft small">${getBankYear(b)}</span>` : ''}
               ${getBankSubject(b) ? `<span class="pill tone-soft small">${getBankSubject(b)}</span>` : ''}
+              ${getBankTags(b)
+                .map((t) => `<span class="pill tone-soft small">#${t}</span>`)
+                .join('')}
             </div>
           </td>
+          <td class="muted">${getBankTags(b).map((t) => `#${t}`).join(', ')}</td>
           <td class="muted">${b.questions ? `${b.questions} q` : ''}</td>
         </tr>
       `,
     )
     .join('');
   DOM.bankTable.innerHTML = `<table>
-    <thead><tr><th></th><th>Bank</th><th>Questions</th></tr></thead>
+    <thead><tr><th></th><th>Bank</th><th>Tags</th><th>Questions</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
   updateBankHint(selected.size);
@@ -1108,6 +1157,7 @@ const init = async () => {
   });
   DOM.bankTable?.addEventListener('change', handleBankTableClick);
   DOM.subjectFilter?.addEventListener('change', renderBanks);
+  DOM.tagFilter?.addEventListener('change', renderBanks);
   DOM.yearPillsFilter?.addEventListener('click', (event) => {
     const pill = event.target.closest('.pill');
     if (!pill?.dataset.year) return;

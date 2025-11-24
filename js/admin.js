@@ -16,6 +16,7 @@ const DOM = {
   bankNameInput: document.getElementById('bank-name'),
   bankYearInput: document.getElementById('bank-year'),
   bankSubjectInput: document.getElementById('bank-subject'),
+  bankTagsInput: document.getElementById('bank-tags'),
   bankFilter: document.getElementById('bank-filter'),
   bankFilterYear: document.getElementById('bank-filter-year'),
   bankFilterSubject: document.getElementById('bank-filter-subject'),
@@ -24,11 +25,16 @@ const DOM = {
   btnResetBank: document.getElementById('btn-reset-bank'),
   btnNewBank: document.getElementById('btn-new-bank'),
   btnExportBanks: document.getElementById('btn-export-banks'),
+  bankBulkTagsInput: document.getElementById('bank-bulk-tags'),
+  bankSelectionHint: document.getElementById('bank-selection-hint'),
+  btnAddTags: document.getElementById('btn-add-tags'),
+  btnRemoveTags: document.getElementById('btn-remove-tags'),
   questionForm: {
     bank: document.getElementById('question-bank'),
     topic: document.getElementById('question-topic'),
     stem: document.getElementById('question-stem'),
     image: document.getElementById('question-image'),
+    images: document.getElementById('question-images'),
     answerCount: document.getElementById('answer-count'),
     answerEditor: document.getElementById('answer-editor'),
     btnSave: document.getElementById('btn-save-question'),
@@ -81,6 +87,7 @@ const state = {
   bankMap: {},
   density: 'comfortable',
   lastUpdated: null,
+  selectedBanks: [],
 };
 
 const setDashStatus = (message = '') => {
@@ -228,7 +235,9 @@ const loadBanks = async () => {
   state.banks = (data || []).map((b) => ({
     ...b,
     subject: b.subject || '',
+    tags: normalizeTags(b.tags || []),
   }));
+  state.selectedBanks = state.selectedBanks.filter((id) => state.banks.some((b) => b.id === id));
   updateBankCounts();
   updateCounts();
   renderBanks();
@@ -239,7 +248,7 @@ const loadQuestions = async () => {
   if (!client) return;
   const { data, error } = await client
     .from('questions')
-    .select('id, bank_id, topic, stem, image_url, answers')
+    .select('id, bank_id, topic, stem, image_url, images, answers')
     .order('created_at', { ascending: false });
   if (error) {
     setDashStatus(`Questions error: ${error.message}`);
@@ -252,6 +261,7 @@ const loadQuestions = async () => {
       topic: q.topic,
       stem: q.stem,
       imageUrl: q.image_url,
+      images: normalizeImages(q.images || q.image_url || []),
       answers: q.answers || [],
     })) || [];
   updateBankCounts();
@@ -411,17 +421,33 @@ const normalizeYear = (yr) => {
 
 const normalizeSubject = (subject) => (subject || '').trim();
 
+const normalizeTags = (tags = []) => {
+  const list = Array.isArray(tags) ? tags : `${tags || ''}`.split(',');
+  return Array.from(
+    new Set(
+      list
+        .map((t) => `${t}`.trim())
+        .filter(Boolean),
+    ),
+  );
+};
+
+const parseTagsInput = (text = '') => normalizeTags(`${text}`.split(','));
+
+const tagsToString = (tags = []) => normalizeTags(tags).join(', ');
+
 const resetBankForm = () => {
   if (DOM.bankNameInput) DOM.bankNameInput.value = '';
   if (DOM.bankYearInput) DOM.bankYearInput.value = '';
   if (DOM.bankSubjectInput) DOM.bankSubjectInput.value = '';
+  if (DOM.bankTagsInput) DOM.bankTagsInput.value = '';
   state.editingBankId = null;
 };
 
-const saveBank = async (name, year = '', subject = '', description = '', id = null) => {
+const saveBank = async (name, year = '', subject = '', description = '', id = null, tags = []) => {
   const client = getClient();
   if (!client) return;
-  const payload = { name, year: normalizeYear(year), subject: normalizeSubject(subject), description };
+  const payload = { name, year: normalizeYear(year), subject: normalizeSubject(subject), description, tags: normalizeTags(tags) };
   if (id) payload.id = id;
   const { error } = await client.from('banks').upsert(payload);
   if (error) {
@@ -466,7 +492,7 @@ const exportBanks = async () => {
   try {
     const { data: banks, error: bankError } = await client
       .from('banks')
-      .select('id, name, year, subject, description')
+      .select('id, name, year, subject, description, tags')
       .order('created_at', { ascending: false });
     if (bankError) {
       setDashStatus(`Export failed: ${bankError.message}`);
@@ -499,6 +525,7 @@ const exportBanks = async () => {
         year: b.year,
         subject: b.subject,
         description: b.description,
+        tags: normalizeTags(b.tags || []),
       },
       questions: grouped[b.id] || [],
     }));
@@ -542,7 +569,7 @@ const renderBanks = () => {
 
     const filtered = state.banks
       .filter((b) => {
-        const text = `${b.name} ${b.subject || ''}`.toLowerCase();
+        const text = `${b.name} ${b.subject || ''} ${tagsToString(b.tags || '')}`.toLowerCase();
         const matchesSearch = !search || text.includes(search);
         const matchesYear = filterYear === 'all' || b.year === filterYear;
         const matchesSubject = filterSubject === 'all' || (b.subject || '') === filterSubject;
@@ -572,9 +599,19 @@ const renderBanks = () => {
         .map(
           (b) => `
           <div class="list-item">
+            <label class="checkbox">
+              <input type="checkbox" data-bank-select="${b.id}" ${state.selectedBanks.includes(b.id) ? 'checked' : ''}>
+            </label>
             <div class="list-meta">
               <strong>${b.name}</strong>
               <span class="muted">${b.count} questions${b.year ? ` • ${b.year}` : ''}${b.subject ? ` • ${b.subject}` : ''}</span>
+              ${
+                (b.tags || []).length
+                  ? `<div class="year-pills">${(b.tags || [])
+                      .map((t) => `<span class="pill tone-soft small">#${t}</span>`)
+                      .join('')}</div>`
+                  : ''
+              }
             </div>
             <div class="list-actions">
               <button class="ghost small" data-bank="${b.id}" data-action="edit-bank">Edit</button>
@@ -607,6 +644,19 @@ const renderBanks = () => {
       .join('');
     DOM.questionFilterBank.innerHTML = opts;
   }
+  updateBankSelectionHint();
+};
+
+const updateBankSelectionHint = () => {
+  if (DOM.bankSelectionHint) DOM.bankSelectionHint.textContent = `${state.selectedBanks.length} bank(s) selected`;
+};
+
+const toggleBankSelection = (id, checked) => {
+  const set = new Set(state.selectedBanks);
+  if (checked) set.add(id);
+  else set.delete(id);
+  state.selectedBanks = Array.from(set);
+  updateBankSelectionHint();
 };
 
 const renderAnswers = () => {
@@ -677,6 +727,7 @@ const resetQuestionForm = () => {
   if (DOM.questionForm.topic) DOM.questionForm.topic.value = '';
   if (DOM.questionForm.stem) DOM.questionForm.stem.value = '';
   if (DOM.questionForm.image) DOM.questionForm.image.value = '';
+  if (DOM.questionForm.images) DOM.questionForm.images.value = '';
   state.answers = [{ text: '', explanation: '', isCorrect: true }];
   setAnswerCount(Number(DOM.questionForm.answerCount?.value || 4));
   state.editingQuestionId = null;
@@ -698,11 +749,54 @@ const validateAnswers = (answers = []) => {
   return { cleaned, errors };
 };
 
+const normalizeImages = (images = []) => {
+  const list = Array.isArray(images) ? images : `${images || ''}`.split(',');
+  return Array.from(
+    new Set(
+      list
+        .map((t) => `${t}`.trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, 3);
+};
+
+const uploadQuestionImages = async (files = []) => {
+  const client = getClient();
+  if (!client || !files.length) return [];
+  const bucket = 'question-images';
+  const uploads = [];
+  for (const file of files) {
+    if (file.size > 5 * 1024 * 1024) {
+      setQuestionStatus(`"${file.name}" exceeds 5 MB limit.`);
+      continue;
+    }
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `questions/${state.user?.id || 'admin'}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data, error } = await client.storage.from(bucket).upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || 'image/jpeg',
+    });
+    if (error) {
+      setQuestionStatus(`Upload failed: ${error.message}`);
+      continue;
+    }
+    const { data: pub } = client.storage.from(bucket).getPublicUrl(data.path);
+    if (pub?.publicUrl) uploads.push(pub.publicUrl);
+  }
+  return uploads;
+};
+
 const saveQuestion = async () => {
   const bankId = DOM.questionForm.bank?.value;
   const stem = DOM.questionForm.stem?.value?.trim();
   const topic = DOM.questionForm.topic?.value?.trim();
-  const imageUrl = DOM.questionForm.image?.value?.trim();
+  const urlImages = normalizeImages(DOM.questionForm.image?.value || '');
+  const fileImages = Array.from(DOM.questionForm.images?.files || []);
+  if (urlImages.length + fileImages.length > 3) {
+    setQuestionStatus('Limit 3 images per question (URLs + uploads).');
+    return;
+  }
   const { cleaned: answers, errors } = validateAnswers(state.answers);
   if (!bankId) errors.push('Bank is required.');
   if (!stem) errors.push('Stem is required.');
@@ -710,6 +804,9 @@ const saveQuestion = async () => {
     setQuestionStatus(errors.join(' '));
     return;
   }
+  const uploadUrls = await uploadQuestionImages(fileImages);
+  const images = normalizeImages([...urlImages, ...uploadUrls]);
+  const imageUrl = images[0] || null;
   const client = getClient();
   if (!client) return;
   const payload = {
@@ -717,6 +814,7 @@ const saveQuestion = async () => {
     topic,
     stem,
     image_url: imageUrl,
+    images,
     answers,
   };
   if (state.editingQuestionId) payload.id = state.editingQuestionId;
@@ -768,7 +866,14 @@ const renderQuestions = () => {
           <span class="pill tone-soft">${q.topic || 'No topic'}</span>
         </div>
         <p class="q-text">${q.stem}</p>
-        ${q.imageUrl ? `<img class="q-image" src="${q.imageUrl}" alt="Question image" />` : ''}
+        ${
+          q.images?.length
+            ? `<div class="q-images">${q.images
+                .slice(0, 3)
+                .map((src) => `<img class="q-image" src="${src}" alt="Question image" />`)
+                .join('')}</div>`
+            : ''
+        }
         <ol class="snap-options">
           ${q.answers
             .map(
@@ -939,6 +1044,7 @@ const parseExamJSON = (raw) => {
       topic: q.topic || null,
       stem: q.stem,
       image_url: q.imageUrl || q.image_url || null,
+      images: normalizeImages(q.images || q.imageUrl || q.image_url || []),
       answers: normalizeAnswers(q.answers),
     };
   });
@@ -948,6 +1054,7 @@ const parseExamJSON = (raw) => {
       description: raw.bank.description || '',
       year: normalizeYear(raw.bank.year),
       subject: normalizeSubject(raw.bank.subject),
+      tags: normalizeTags(raw.bank.tags || []),
     },
     questions,
   };
@@ -990,6 +1097,7 @@ const importExam = async (exam) => {
         description: exam.bank.description || '',
         year: normalizeYear(exam.bank.year),
         subject: normalizeSubject(exam.bank.subject),
+        tags: normalizeTags(exam.bank.tags || []),
       })
       .select()
       .maybeSingle();
@@ -1002,6 +1110,7 @@ const importExam = async (exam) => {
         year: normalizeYear(exam.bank.year) || existing.year || null,
         subject: normalizeSubject(exam.bank.subject) || existing.subject || null,
         description: exam.bank.description || existing.description || null,
+        tags: normalizeTags(exam.bank.tags || existing.tags || []),
       })
       .eq('id', bankId);
   }
@@ -1120,7 +1229,8 @@ const handleListClick = async (event) => {
     if (DOM.questionForm.bank) DOM.questionForm.bank.value = q.bankId;
     if (DOM.questionForm.topic) DOM.questionForm.topic.value = q.topic || '';
     if (DOM.questionForm.stem) DOM.questionForm.stem.value = q.stem || '';
-    if (DOM.questionForm.image) DOM.questionForm.image.value = q.imageUrl || '';
+    if (DOM.questionForm.image) DOM.questionForm.image.value = normalizeImages(q.images || q.imageUrl || []).join(', ');
+    if (DOM.questionForm.images) DOM.questionForm.images.value = '';
     state.answers = q.answers.map((a) => ({ ...a }));
     setAnswerCount(state.answers.length || 1);
     setQuestionStatus(`Editing question in ${q.bankId}`);
@@ -1135,6 +1245,12 @@ const handleListClick = async (event) => {
     if (DOM.questionFilterText) DOM.questionFilterText.value = '';
     renderQuestions();
   }
+};
+
+const handleBankSelectionChange = (event) => {
+  const checkbox = event.target.closest('input[type="checkbox"][data-bank-select]');
+  if (!checkbox) return;
+  toggleBankSelection(checkbox.dataset.bankSelect, checkbox.checked);
 };
 
 const handleAnswerInput = (event) => {
@@ -1164,23 +1280,53 @@ const setAccess = async (email, allowed, expiresAt = null) => {
   }
 };
 
+const applyTagsToBanks = async (mode = 'add') => {
+  const ids = state.selectedBanks || [];
+  const tags = parseTagsInput(DOM.bankBulkTagsInput?.value || '');
+  if (!ids.length) {
+    setDashStatus('Select one or more banks first.');
+    return;
+  }
+  if (!tags.length) {
+    setDashStatus('Enter one or more tags (comma separated).');
+    return;
+  }
+  const client = getClient();
+  if (!client) return;
+  const tagSet = new Set(tags.map((t) => t.toLowerCase()));
+  for (const id of ids) {
+    const bank = state.banks.find((b) => b.id === id);
+    const existing = normalizeTags(bank?.tags || []);
+    const next =
+      mode === 'remove'
+        ? existing.filter((t) => !tagSet.has(t.toLowerCase()))
+        : normalizeTags([...existing, ...tags]);
+    await client.from('banks').update({ tags: next }).eq('id', id);
+  }
+  setDashStatus(`${mode === 'remove' ? 'Removed' : 'Added'} tags for ${ids.length} bank(s).`);
+  await loadBanks();
+  if (DOM.bankBulkTagsInput) DOM.bankBulkTagsInput.value = '';
+};
+
 const handleBankEdit = (bank) => {
   if (!bank) return;
   state.editingBankId = bank.id;
   if (DOM.bankNameInput) DOM.bankNameInput.value = bank.name || '';
   if (DOM.bankYearInput) DOM.bankYearInput.value = bank.year || '';
   if (DOM.bankSubjectInput) DOM.bankSubjectInput.value = bank.subject || '';
+  if (DOM.bankTagsInput) DOM.bankTagsInput.value = tagsToString(bank.tags || []);
 };
 
 const handleSaveBankClick = async () => {
   const name = DOM.bankNameInput?.value?.trim();
   const year = DOM.bankYearInput?.value || '';
   const subject = DOM.bankSubjectInput?.value || '';
+  const tags = parseTagsInput(DOM.bankTagsInput?.value || '');
   if (!name) {
     setDashStatus('Bank name is required.');
     return;
   }
-  await saveBank(name, year, subject, '', state.editingBankId);
+  await saveBank(name, year, subject, '', state.editingBankId, tags);
 };
 
 const handleNewBank = () => {
@@ -1225,6 +1371,7 @@ const init = async () => {
   applyCollapsedPanels();
   setUpdatedLabel(state.lastUpdated);
   updateCounts();
+  updateBankSelectionHint();
 
   // Auth actions
   DOM.btnSignin?.addEventListener('click', signIn);
@@ -1258,10 +1405,13 @@ const init = async () => {
 
   // Bank actions
   DOM.bankList?.addEventListener('click', handleListClick);
+  DOM.bankList?.addEventListener('change', handleBankSelectionChange);
   DOM.btnNewBank?.addEventListener('click', handleNewBank);
   DOM.btnSaveBank?.addEventListener('click', handleSaveBankClick);
   DOM.btnResetBank?.addEventListener('click', resetBankForm);
   DOM.btnExportBanks?.addEventListener('click', exportBanks);
+  DOM.btnAddTags?.addEventListener('click', () => applyTagsToBanks('add'));
+  DOM.btnRemoveTags?.addEventListener('click', () => applyTagsToBanks('remove'));
 
   // User search
   DOM.userSearch?.addEventListener('input', renderUsers);
