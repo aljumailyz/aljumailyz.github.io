@@ -84,6 +84,7 @@ const state = {
   userActivity: [],
   history: [],
   accessGrants: [],
+  accessUsage: {},
   collapsedPanels: {},
   bankMap: {},
   density: 'comfortable',
@@ -315,7 +316,7 @@ const loadUsers = async () => {
 const loadAccessGrants = async () => {
   const client = getClient();
   if (!client) return;
-  const { data, error } = await client.from('access_grants').select('email, allowed, expires_at').order('email');
+  const { data, error } = await client.from('access_grants').select('email, allowed, expires_at, premium').order('email');
   if (error) {
     setDashStatus('Access table missing (access_grants). Create it with email text, allowed boolean.');
     return;
@@ -323,8 +324,10 @@ const loadAccessGrants = async () => {
   state.accessGrants = (data || []).map((row) => ({
     email: (row.email || '').toLowerCase(),
     allowed: row.allowed !== false,
+    premium: Boolean(row.premium),
     expiresAt: row.expires_at || null,
   }));
+  await loadUsageStats();
   renderAccessGrants();
   updateCounts();
 };
@@ -353,6 +356,27 @@ const buildProfileMap = async () => {
     }
   }
   return {};
+};
+
+const loadUsageStats = async () => {
+  const client = getClient();
+  if (!client) return;
+  try {
+    const profileMap = await buildProfileMap();
+    const { data, error } = await client.from('ai_usage').select('user_id, tokens_used, window_start');
+    if (error) return;
+    const usageMap = {};
+    (data || []).forEach((row) => {
+      const userId = row.user_id;
+      const profile = profileMap[userId] || {};
+      const email = profile.email || '';
+      if (!email) return;
+      usageMap[email.toLowerCase()] = { tokens: row.tokens_used || 0, windowStart: row.window_start };
+    });
+    state.accessUsage = usageMap;
+  } catch (_err) {
+    // ignore
+  }
 };
 
 const formatTimeAgo = (iso) => {
@@ -975,6 +999,7 @@ const renderAccessGrants = () => {
         <div class="list-meta">
           <strong>${a.email}</strong>
           <span class="pill ${a.allowed ? 'tone-accent' : 'tone-soft'} small">${a.allowed ? 'Allowed' : 'Revoked'}</span>
+          ${a.premium ? '<span class="pill tone-info small">Premium</span>' : '<span class="pill tone-soft small">Standard</span>'}
           ${
             a.expiresAt
               ? `<span class="pill ${new Date(a.expiresAt).getTime() > now ? 'tone-info' : 'tone-soft'} small">
@@ -982,10 +1007,18 @@ const renderAccessGrants = () => {
                 </span>`
               : '<span class="pill tone-soft small">No expiry</span>'
           }
+          ${
+            state.accessUsage[a.email]
+              ? `<span class="muted">Usage (hour): ${state.accessUsage[a.email].tokens} tokens</span>`
+              : ''
+          }
         </div>
         <div class="list-actions">
           <button class="ghost small" data-action="toggle-access" data-email="${a.email}">
             ${a.allowed ? 'Revoke' : 'Allow'}
+          </button>
+          <button class="ghost small" data-action="toggle-premium" data-email="${a.email}">
+            ${a.premium ? 'Remove premium' : 'Grant premium'}
           </button>
         </div>
       </div>
@@ -1298,6 +1331,11 @@ const handleListClick = async (event) => {
     const current = state.accessGrants.find((a) => a.email === email);
     await setAccess(email, !(current?.allowed));
   }
+  if (action === 'toggle-premium') {
+    const email = (event.target.dataset.email || '').toLowerCase();
+    const current = state.accessGrants.find((a) => a.email === email);
+    await setPremium(email, !(current?.premium));
+  }
   if (action === 'reset-question-filters') {
     if (DOM.questionFilterBank) DOM.questionFilterBank.value = 'all';
     if (DOM.questionFilterText) DOM.questionFilterText.value = '';
@@ -1324,7 +1362,8 @@ const setAccess = async (email, allowed, expiresAt = null) => {
   const client = getClient();
   if (!client) return;
   try {
-    const payload = { email, allowed };
+    const current = state.accessGrants.find((a) => a.email === email);
+    const payload = { email, allowed, premium: current?.premium || false };
     if (expiresAt) payload.expires_at = expiresAt;
     const { error } = await client.from('access_grants').upsert(payload);
     if (error) {
@@ -1335,6 +1374,30 @@ const setAccess = async (email, allowed, expiresAt = null) => {
     await loadAccessGrants();
   } catch (err) {
     setDashStatus('Access update failed.');
+  }
+};
+
+const setPremium = async (email, premium) => {
+  if (!email) return;
+  const client = getClient();
+  if (!client) return;
+  try {
+    const current = state.accessGrants.find((a) => a.email === email);
+    const payload = {
+      email,
+      allowed: current?.allowed !== false,
+      premium: Boolean(premium),
+      expires_at: current?.expiresAt || null,
+    };
+    const { error } = await client.from('access_grants').upsert(payload);
+    if (error) {
+      setDashStatus(`Premium update failed: ${error.message}`);
+      return;
+    }
+    setDashStatus(`Premium ${premium ? 'granted' : 'revoked'} for ${email}.`);
+    await loadAccessGrants();
+  } catch (err) {
+    setDashStatus('Premium update failed.');
   }
 };
 

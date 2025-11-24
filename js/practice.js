@@ -56,6 +56,7 @@ const state = {
   user: null,
   access: {
     allowed: [],
+    premium: [],
   },
   practice: {
     bankName: '',
@@ -136,10 +137,16 @@ const hideExplainOverlay = () => {
 };
 
 const DEFAULT_MODEL = '@preset/ai-explainer';
+const PREMIUM_MODEL = '@preset/ai-explainer-pro';
+const PREMIUM_TOKEN_LIMIT = 5000;
+const AI_USAGE_KEY = 'examforge.ai.usage';
+const cachedKeys = {
+  public: { key: null, model: null },
+  premium: { key: null, model: null },
+};
+
 const getPublicAIKey = () => ''; // disabled; use Supabase-stored key instead
 const getPublicAIModel = () => DEFAULT_MODEL;
-let cachedAIKey = null;
-let cachedAIModel = null;
 
 const sanitizeModel = (model) => {
   if (!model || typeof model !== 'string') return DEFAULT_MODEL;
@@ -252,7 +259,7 @@ const setAIMode = (mode) => {
   }
 };
 const updateExplainAvailability = () => {
-  const hasRemoteKey = Boolean(cachedAIKey);
+  const hasRemoteKey = Boolean(cachedKeys.public.key || cachedKeys.premium.key);
   const disabled = !hasRemoteKey;
   if (DOM.btnExplain) {
     DOM.btnExplain.classList.toggle('disabled', disabled);
@@ -262,20 +269,23 @@ const updateExplainAvailability = () => {
   if (DOM.aiHint) DOM.aiHint.textContent = hasRemoteKey ? 'AI' : 'Set config.js';
 };
 
-const fetchAIKeyFromSupabase = async () => {
-  if (cachedAIKey) return { key: cachedAIKey, model: cachedAIModel || getPublicAIModel() };
+const fetchAIKeyFromSupabase = async (tier = 'public') => {
+  const cache = cachedKeys[tier] || { key: null, model: null };
+  if (cache.key) return { key: cache.key, model: cache.model || (tier === 'premium' ? PREMIUM_MODEL : getPublicAIModel()) };
   if (!supabaseAvailable()) return { key: '', model: getPublicAIModel() };
   try {
     const client = supabaseClient();
-    const { data, error } = await client.from('ai_keys').select('key, model').eq('id', 'public').maybeSingle();
+    const { data, error } = await client.from('ai_keys').select('key, model').eq('id', tier === 'premium' ? 'premium' : 'public').maybeSingle();
     if (!error && data?.key) {
-      cachedAIKey = data.key;
-      cachedAIModel = sanitizeModel(data.model);
-      return { key: cachedAIKey, model: cachedAIModel };
+      cache.key = data.key;
+      cache.model = sanitizeModel(data.model || (tier === 'premium' ? PREMIUM_MODEL : getPublicAIModel()));
+      cachedKeys[tier] = cache;
+      return { key: cache.key, model: cache.model };
     }
   } catch (_err) {
     // fall back silently
   }
+  if (tier === 'premium') return { key: cachedKeys.public?.key || '', model: PREMIUM_MODEL };
   return { key: getPublicAIKey(), model: getPublicAIModel() };
 };
 
@@ -293,6 +303,49 @@ const getAccessToken = async () => {
   const client = supabaseClient();
   const { data } = await client.auth.getSession();
   return data?.session?.access_token || null;
+};
+
+const premiumAllowlist = (window.__PREMIUM_USERS || []).map((e) => e.toLowerCase());
+const hasPremiumAccess = () => {
+  const email = state.user?.email?.toLowerCase() || '';
+  if (!email) return false;
+  if (premiumAllowlist.includes(email)) return true;
+  if (state.user?.user_metadata?.subscription === 'premium') return true;
+  if (state.access?.premium?.includes(email)) return true;
+  return false;
+};
+
+const loadUsage = () => {
+  try {
+    const raw = localStorage.getItem(AI_USAGE_KEY);
+    if (!raw) return { windowStart: Date.now(), premium: 0 };
+    const parsed = JSON.parse(raw);
+    const windowStart = parsed.windowStart || Date.now();
+    const withinWindow = Date.now() - windowStart < 60 * 60 * 1000;
+    return withinWindow ? { windowStart, premium: parsed.premium || 0 } : { windowStart: Date.now(), premium: 0 };
+  } catch (err) {
+    return { windowStart: Date.now(), premium: 0 };
+  }
+};
+
+const persistUsage = (usage) => {
+  try {
+    localStorage.setItem(AI_USAGE_KEY, JSON.stringify(usage));
+  } catch (err) {
+    // ignore
+  }
+};
+
+const canUsePremiumTokens = (tokensPlanned = 0) => {
+  const usage = loadUsage();
+  return usage.premium + tokensPlanned <= PREMIUM_TOKEN_LIMIT;
+};
+
+const recordUsage = (tier, tokensUsed = 0) => {
+  if (tier !== 'premium') return;
+  const usage = loadUsage();
+  usage.premium = Math.min(PREMIUM_TOKEN_LIMIT, usage.premium + tokensUsed);
+  persistUsage(usage);
 };
 
 const setDensity = (mode = 'comfortable') => {
@@ -451,17 +504,20 @@ const renderPractice = () => {
 
 const explainQuestion = async () => {
   const { questions, current } = state.practice;
-  const { key: publicKey, model: publicModel } = await fetchAIKeyFromSupabase();
-  if (!publicKey) {
-    showExplainOverlay('No AI key available. Add a key to Supabase table ai_keys (id=public).');
-    return;
-  }
   if (!questions.length) return;
   const q = questions[current];
   const answers = q.answers?.map((a) => a.text || '') || [];
   const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
   const wordLimit = state.aiMode === 'detailed' ? 700 : 400;
   const maxTokens = state.aiMode === 'detailed' ? 2200 : 1200;
+  const wantsPremium = hasPremiumAccess() && canUsePremiumTokens(maxTokens);
+  const premiumKey = wantsPremium ? await fetchAIKeyFromSupabase('premium') : { key: '', model: '' };
+  const usingPremium = Boolean(premiumKey.key && wantsPremium);
+  const { key: publicKey, model: publicModel } = usingPremium ? premiumKey : await fetchAIKeyFromSupabase('public');
+  if (!publicKey) {
+    showExplainOverlay('No AI key available. Add a key to Supabase table ai_keys (id=public).');
+    return;
+  }
   if (state.explainLoading) {
     showToast('Please wait for the current explanation to finish.', 'error');
     return;
@@ -504,8 +560,12 @@ const explainQuestion = async () => {
     if (DOM.explainStatus) DOM.explainStatus.textContent = '';
     if (DOM.explainCopy) DOM.explainCopy.innerHTML = text;
     addHistoryEntry(q.stem, state.aiMode, text);
+    recordUsage(usingPremium ? 'premium' : 'public', maxTokens);
   } catch (err) {
     if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed. Try again.';
+    if (usingPremium && err?.message?.includes('429')) {
+      showToast('Premium limit reached. Switching to standard model next.', 'error');
+    }
   } finally {
     DOM.aiLoader?.classList.add('hidden');
     state.explainLoading = false;
@@ -531,13 +591,16 @@ const askFollowup = async () => {
   const q = questions[current];
   const answers = q.answers?.map((a) => a.text || '') || [];
   const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
-  const { key: publicKey, model: publicModel } = await fetchAIKeyFromSupabase();
+  const wordLimit = state.aiMode === 'detailed' ? 700 : 400;
+  const maxTokens = state.aiMode === 'detailed' ? 2200 : 1200;
+  const wantsPremium = hasPremiumAccess() && canUsePremiumTokens(maxTokens);
+  const premiumKey = wantsPremium ? await fetchAIKeyFromSupabase('premium') : { key: '', model: '' };
+  const usingPremium = Boolean(premiumKey.key && wantsPremium);
+  const { key: publicKey, model: publicModel } = usingPremium ? premiumKey : await fetchAIKeyFromSupabase('public');
   if (!publicKey) {
     showExplainOverlay('No AI key available. Add a key to Supabase table ai_keys (id=public).');
     return;
   }
-  const wordLimit = state.aiMode === 'detailed' ? 700 : 400;
-  const maxTokens = state.aiMode === 'detailed' ? 2200 : 1200;
   showExplainOverlay('Requesting follow-up…');
   DOM.aiLoader?.classList.remove('hidden');
   try {
@@ -570,8 +633,12 @@ const askFollowup = async () => {
     if (DOM.explainStatus) DOM.explainStatus.textContent = '';
     if (DOM.explainCopy) DOM.explainCopy.innerHTML = text;
     addHistoryEntry(q.stem, state.aiMode, text);
+    recordUsage(usingPremium ? 'premium' : 'public', maxTokens);
   } catch (err) {
     if (DOM.explainStatus) DOM.explainStatus.textContent = 'AI explain failed. Try again.';
+    if (usingPremium && err?.message?.includes('429')) {
+      showToast('Premium limit reached. Switching to standard model next.', 'error');
+    }
   } finally {
     DOM.aiLoader?.classList.add('hidden');
   }
@@ -669,15 +736,24 @@ const loadAccessGrants = async () => {
   if (!supabaseAvailable()) return;
   try {
     const client = supabaseClient();
-    const { data, error } = await client.from('access_grants').select('email, allowed, expires_at');
+    const { data, error } = await client.from('access_grants').select('email, allowed, expires_at, premium');
     if (error) return;
     const now = Date.now();
+    const rows = data || [];
     state.access.allowed =
-      data
-        ?.filter((row) => {
+      rows
+        .filter((row) => {
           if (row.allowed === false || !row.email) return false;
           if (row.expires_at && new Date(row.expires_at).getTime() < now) return false;
           return true;
+        })
+        .map((row) => row.email.toLowerCase()) || [];
+    state.access.premium =
+      rows
+        .filter((row) => {
+          if (!row?.email) return false;
+          if (row.expires_at && new Date(row.expires_at).getTime() < now) return false;
+          return Boolean(row.premium);
         })
         .map((row) => row.email.toLowerCase()) || [];
   } catch (err) {
