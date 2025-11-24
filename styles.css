@@ -566,6 +566,28 @@ button.full {
   flex-shrink: 0;
 }
 
+.premium-upload {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  background: linear-gradient(135deg, rgba(31, 122, 224, 0.05), rgba(255, 255, 255, 0.9));
+  outline: 1px dashed rgba(31, 122, 224, 0.35);
+}
+
+.premium-upload summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.premium-upload[open] {
+  box-shadow: 0 8px 18px rgba(15, 28, 48, 0.12);
+}
+
+[data-theme='dark'] .premium-upload {
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.08), rgba(18, 29, 51, 0.85));
+  outline-color: rgba(88, 166, 255, 0.35);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;

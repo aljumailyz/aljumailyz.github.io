@@ -128,6 +128,7 @@
             <button class="ghost full" id="menu-signout">Sign out</button>
             <div class="pill tone-accent" id="dash-session">Signed in</div>
             <div class="pill tone-soft" id="dash-subscription">Checking subscription…</div>
+            <div class="pill tone-soft" id="dash-premium">Premium: Checking…</div>
           </div>
         </div>
       </div>
@@ -177,6 +178,16 @@
               <span>Banks (select one or more)</span>
               <div class="bank-table compact" id="bank-table"></div>
             </div>
+            <details class="premium-upload" id="premium-upload">
+              <summary>Premium: Upload a local question bank</summary>
+              <p class="hint">Contact support for formatting instructions.</p>
+              <div class="input-group">
+                <span>Upload bank JSON</span>
+                <input id="premium-upload-file" type="file" accept=".json" />
+              </div>
+              <button class="ghost small" id="btn-import-local-bank" type="button">Import local bank</button>
+              <p class="hint" id="premium-upload-status"></p>
+            </details>
             <label class="input-group">
               <span>Number of questions</span>
               <input id="input-question-count" type="number" min="1" inputmode="numeric" placeholder="All available">

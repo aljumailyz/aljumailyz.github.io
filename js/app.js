@@ -38,6 +38,7 @@ const DOM = {
   menuInitials: document.getElementById('user-menu-initials'),
   menuEmail: document.getElementById('user-menu-email'),
   menuSubscription: document.getElementById('dash-subscription'),
+  menuPremium: document.getElementById('dash-premium'),
   profilePanel: document.getElementById('profile-panel'),
   profileFirst: document.getElementById('profile-first'),
   profileLast: document.getElementById('profile-last'),
@@ -59,6 +60,14 @@ const DOM = {
   btnRefreshBanks: document.getElementById('btn-refresh-banks'),
   btnSelectAllBanks: document.getElementById('btn-select-all-banks'),
   btnClearBanks: document.getElementById('btn-clear-banks'),
+  premiumUpload: document.getElementById('premium-upload'),
+  premiumUploadFile: document.getElementById('premium-upload-file'),
+  premiumUploadStatus: document.getElementById('premium-upload-status'),
+  btnImportLocalBank: document.getElementById('btn-import-local-bank'),
+  premiumUpload: document.getElementById('premium-upload'),
+  premiumUploadFile: document.getElementById('premium-upload-file'),
+  premiumUploadStatus: document.getElementById('premium-upload-status'),
+  btnImportLocalBank: document.getElementById('btn-import-local-bank'),
   accessSignout: document.getElementById('btn-access-signout'),
   practice: document.getElementById('practice'),
   practiceBank: document.getElementById('practice-bank'),
@@ -131,8 +140,19 @@ const getAllowedEmails = () => {
   return Array.from(new Set([...paidUsers, ...dynamic]));
 };
 
+const premiumAllowlist = (window.__PREMIUM_USERS || []).map((e) => e.toLowerCase());
+const hasPremiumAccess = () => {
+  const email = state.user?.email?.toLowerCase() || '';
+  if (!email) return false;
+  if (premiumAllowlist.includes(email)) return true;
+  if (state.user?.user_metadata?.subscription === 'premium') return true;
+  if (state.access?.premium?.includes(email)) return true;
+  return false;
+};
+
 const SELECTED_BANKS_KEY = 'examforge.selectedBanks';
 const OLD_UI_KEY = 'examforge.ui.oldschool';
+const LOCAL_BANKS_KEY = 'examforge.localBanks';
 
 // Fisher-Yates shuffle
 const shuffleArray = (arr = []) => {
@@ -163,6 +183,14 @@ const enforceAccess = () => {
   if (DOM.menuSubscription) {
     DOM.menuSubscription.textContent = hasAccess ? 'Subscription active' : 'No subscription';
     DOM.menuSubscription.className = `pill ${hasAccess ? 'tone-accent' : 'tone-soft'}`;
+  }
+  if (DOM.menuPremium) {
+    const premium = hasPremiumAccess();
+    DOM.menuPremium.textContent = premium ? 'Premium: Active' : 'Premium: Standard';
+    DOM.menuPremium.className = `pill ${premium ? 'tone-accent' : 'tone-soft'}`;
+  }
+  if (DOM.premiumUpload) {
+    DOM.premiumUpload.classList.toggle('hidden', !hasPremiumAccess());
   }
   if (!hasAccess) {
     DOM.btnStart?.setAttribute('disabled', 'disabled');
@@ -261,7 +289,7 @@ const loadBanks = async () => {
       .select(withTags ? 'id, name, year, subject, tags' : 'id, name, year, subject')
       .order('created_at', { ascending: false });
   if (!supabaseAvailable()) {
-    stateBanks.banks = sampleBanks;
+    stateBanks.banks = mergeLocalBanks(sampleBanks);
     renderBanks();
     state.banksLoading = false;
     setDashStatus('');
@@ -270,7 +298,7 @@ const loadBanks = async () => {
   }
   const client = supabaseClient();
   if (!client) {
-    stateBanks.banks = sampleBanks;
+    stateBanks.banks = mergeLocalBanks(sampleBanks);
     renderBanks();
     state.banksLoading = false;
     setDashStatus('');
@@ -300,14 +328,14 @@ const loadBanks = async () => {
     setDashStatus('No banks found. Check permissions or add banks.');
     stateBanks.banks = [];
   } else {
-    stateBanks.banks = data.map((b) => ({
+    stateBanks.banks = mergeLocalBanks(data.map((b) => ({
       id: b.id,
       name: b.name,
       year: b.year || '',
       subject: b.subject || '',
       questions: b.questions || 0,
       tags: Array.isArray(b.tags) ? b.tags : [],
-    }));
+    })));
   }
   renderBanks();
   state.banksLoading = false;
@@ -580,6 +608,30 @@ const clearAllBanks = () => {
   renderBanks();
 };
 
+const importLocalBank = async () => {
+  if (!hasPremiumAccess()) {
+    if (DOM.premiumUploadStatus) DOM.premiumUploadStatus.textContent = 'Premium required to import local banks.';
+    return;
+  }
+  const file = DOM.premiumUploadFile?.files?.[0];
+  if (!file) {
+    if (DOM.premiumUploadStatus) DOM.premiumUploadStatus.textContent = 'Choose a JSON file first.';
+    return;
+  }
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const list = Array.isArray(parsed) ? parsed : parsed?.banks && Array.isArray(parsed.banks) ? parsed.banks : [parsed];
+    const normalized = list.map((b, idx) => normalizeLocalBank(b, idx));
+    const existing = loadLocalBanks();
+    saveLocalBanks([...existing, ...normalized]);
+    if (DOM.premiumUploadStatus) DOM.premiumUploadStatus.textContent = `Imported ${normalized.length} local bank(s).`;
+    loadBanks();
+  } catch (err) {
+    if (DOM.premiumUploadStatus) DOM.premiumUploadStatus.textContent = 'Import failed. Ensure JSON is valid.';
+  }
+};
+
 const auth = async (mode) => {
   if (!supabaseAvailable()) {
     setAuthUI('Supabase keys missing.');
@@ -726,7 +778,14 @@ const loadAccessGrants = async () => {
   if (!supabaseAvailable()) return;
   try {
     const client = supabaseClient();
-    const { data, error } = await client.from('access_grants').select('email, allowed, expires_at');
+    let { data, error } = await client
+      .from('access_grants')
+      .select('email, allowed, expires_at, premium, premium_until');
+    if (error?.code === '42703') {
+      const fallback = await client.from('access_grants').select('email, allowed, expires_at');
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error) return;
     const now = Date.now();
     state.access.allowed =
@@ -737,9 +796,53 @@ const loadAccessGrants = async () => {
           return true;
         })
         .map((row) => row.email.toLowerCase()) || [];
+    state.access.premium =
+      data
+        ?.filter((row) => {
+          if (!row?.email) return false;
+          if (row.expires_at && new Date(row.expires_at).getTime() < now) return false;
+          const until = row.premium_until ? new Date(row.premium_until).getTime() : 0;
+          const activeUntil = until > now;
+          return Boolean(row.premium) || activeUntil;
+        })
+        .map((row) => row.email.toLowerCase()) || [];
   } catch (err) {
     // ignore
   }
+};
+
+const loadLocalBanks = () => {
+  try {
+    const raw = localStorage.getItem(LOCAL_BANKS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) || [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+};
+
+const saveLocalBanks = (banks = []) => {
+  try {
+    localStorage.setItem(LOCAL_BANKS_KEY, JSON.stringify(banks));
+  } catch (err) {
+    // ignore
+  }
+};
+
+const normalizeLocalBank = (bank = {}, idx = 0) => {
+  const id = bank.id || `local-${Date.now()}-${idx}`;
+  const name = bank.name || `Local Bank ${idx + 1}`;
+  const year = bank.year || 'Local';
+  const subject = bank.subject || 'Local';
+  const questions = Number(bank.questions) || 0;
+  return { id, name, year, subject, questions, tags: ['Local'] };
+};
+
+const mergeLocalBanks = (banks = []) => {
+  if (!hasPremiumAccess()) return banks;
+  const locals = loadLocalBanks().map((b, idx) => normalizeLocalBank(b, idx));
+  return [...banks, ...locals];
 };
 
 const refreshStats = () => {
@@ -1215,6 +1318,7 @@ const init = async () => {
   DOM.menuOldUI?.addEventListener('click', () => applyOldUI(!loadOldUI()));
   DOM.btnSelectAllBanks?.addEventListener('click', selectAllBanks);
   DOM.btnClearBanks?.addEventListener('click', clearAllBanks);
+  DOM.btnImportLocalBank?.addEventListener('click', importLocalBank);
   document.addEventListener('click', (e) => {
     if (!DOM.menuPanel || !DOM.menuToggle) return;
     if (DOM.menuPanel.contains(e.target) || DOM.menuToggle.contains(e.target)) return;

@@ -316,7 +316,10 @@ const loadUsers = async () => {
 const loadAccessGrants = async () => {
   const client = getClient();
   if (!client) return;
-  const { data, error } = await client.from('access_grants').select('email, allowed, expires_at, premium').order('email');
+  const { data, error } = await client
+    .from('access_grants')
+    .select('email, allowed, expires_at, premium, premium_until')
+    .order('email');
   if (error) {
     setDashStatus('Access table missing (access_grants). Create it with email text, allowed boolean.');
     return;
@@ -325,6 +328,7 @@ const loadAccessGrants = async () => {
     email: (row.email || '').toLowerCase(),
     allowed: row.allowed !== false,
     premium: Boolean(row.premium),
+    premiumUntil: row.premium_until || null,
     expiresAt: row.expires_at || null,
   }));
   await loadUsageStats();
@@ -1000,18 +1004,13 @@ const renderAccessGrants = () => {
           <strong>${a.email}</strong>
           <span class="pill ${a.allowed ? 'tone-accent' : 'tone-soft'} small">${a.allowed ? 'Allowed' : 'Revoked'}</span>
           ${a.premium ? '<span class="pill tone-info small">Premium</span>' : '<span class="pill tone-soft small">Standard</span>'}
-          ${
-            a.expiresAt
-              ? `<span class="pill ${new Date(a.expiresAt).getTime() > now ? 'tone-info' : 'tone-soft'} small">
-                  Expires ${new Date(a.expiresAt).toLocaleDateString()}
-                </span>`
-              : '<span class="pill tone-soft small">No expiry</span>'
-          }
-          ${
-            state.accessUsage[a.email]
-              ? `<span class="muted">Usage (hour): ${state.accessUsage[a.email].tokens} tokens</span>`
-              : ''
-          }
+          ${a.premiumUntil ? `<span class="pill tone-soft small">Premium until ${new Date(a.premiumUntil).toLocaleDateString()}</span>` : ''}
+          ${a.expiresAt
+            ? `<span class="pill ${new Date(a.expiresAt).getTime() > now ? 'tone-info' : 'tone-soft'} small">
+                Expires ${new Date(a.expiresAt).toLocaleDateString()}
+              </span>`
+            : '<span class="pill tone-soft small">No expiry</span>'}
+          ${state.accessUsage[a.email] ? `<span class="muted">Usage (hour): ${state.accessUsage[a.email].tokens} tokens</span>` : ''}
         </div>
         <div class="list-actions">
           <button class="ghost small" data-action="toggle-access" data-email="${a.email}">
@@ -1020,6 +1019,8 @@ const renderAccessGrants = () => {
           <button class="ghost small" data-action="toggle-premium" data-email="${a.email}">
             ${a.premium ? 'Remove premium' : 'Grant premium'}
           </button>
+          <button class="ghost small" data-action="add-premium-30" data-email="${a.email}">+30 days</button>
+          <button class="ghost small" data-action="remove-premium-30" data-email="${a.email}">-30 days</button>
         </div>
       </div>
     `,
@@ -1336,6 +1337,14 @@ const handleListClick = async (event) => {
     const current = state.accessGrants.find((a) => a.email === email);
     await setPremium(email, !(current?.premium));
   }
+  if (action === 'add-premium-30') {
+    const email = (event.target.dataset.email || '').toLowerCase();
+    await adjustPremiumDays(email, 30);
+  }
+  if (action === 'remove-premium-30') {
+    const email = (event.target.dataset.email || '').toLowerCase();
+    await adjustPremiumDays(email, -30);
+  }
   if (action === 'reset-question-filters') {
     if (DOM.questionFilterBank) DOM.questionFilterBank.value = 'all';
     if (DOM.questionFilterText) DOM.questionFilterText.value = '';
@@ -1387,10 +1396,15 @@ const setPremium = async (email, premium) => {
       email,
       allowed: current?.allowed !== false,
       premium: Boolean(premium),
+      premium_until: current?.premiumUntil || null,
       expires_at: current?.expiresAt || null,
     };
     const { error } = await client.from('access_grants').upsert(payload);
     if (error) {
+      if (error.code === '42703') {
+        setDashStatus('Add column premium_until to access_grants (timestamptz) to use premium expiry.');
+        return;
+      }
       setDashStatus(`Premium update failed: ${error.message}`);
       return;
     }
@@ -1399,6 +1413,35 @@ const setPremium = async (email, premium) => {
   } catch (err) {
     setDashStatus('Premium update failed.');
   }
+};
+
+const adjustPremiumDays = async (email, deltaDays = 30) => {
+  if (!email) return;
+  const client = getClient();
+  if (!client) return;
+  const current = state.accessGrants.find((a) => a.email === email);
+  const base = current?.premiumUntil ? new Date(current.premiumUntil).getTime() : Date.now();
+  const newUntil = new Date(base + deltaDays * 24 * 60 * 60 * 1000);
+  const now = Date.now();
+  const active = newUntil.getTime() > now;
+  const payload = {
+    email,
+    allowed: current?.allowed !== false,
+    premium: active || current?.premium || false,
+    premium_until: newUntil.toISOString(),
+    expires_at: current?.expiresAt || null,
+  };
+  const { error } = await client.from('access_grants').upsert(payload);
+  if (error) {
+    if (error.code === '42703') {
+      setDashStatus('Add column premium_until to access_grants (timestamptz) to track premium days.');
+      return;
+    }
+    setDashStatus(`Premium adjustment failed: ${error.message}`);
+    return;
+  }
+  setDashStatus(`Premium ${deltaDays > 0 ? 'extended' : 'reduced'} by ${Math.abs(deltaDays)} days for ${email}.`);
+  await loadAccessGrants();
 };
 
 const applyTagsToBanks = async (mode = 'add') => {
