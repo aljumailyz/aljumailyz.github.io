@@ -45,6 +45,24 @@ body {
   transition: background 0.25s ease, color 0.25s ease;
 }
 
+.maintenance-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: linear-gradient(90deg, #f6d365, #fda085);
+  color: #0f1c30;
+  padding: 8px 12px;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+[data-theme='dark'] .maintenance-banner {
+  background: linear-gradient(90deg, #514a9d, #24c6dc);
+  color: #f2f6ff;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .bg-accents {
   position: fixed;
   inset: 0;
