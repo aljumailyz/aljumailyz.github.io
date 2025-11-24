@@ -22,6 +22,7 @@ const DOM = {
   bankHint: document.getElementById('bank-hint'),
   subjectFilter: document.getElementById('subject-filter'),
   tagFilter: document.getElementById('tag-filter'),
+  bankSearch: document.getElementById('bank-search'),
   questionCount: document.getElementById('input-question-count'),
   btnStart: document.getElementById('btn-start'),
   yearPillsFilter: document.getElementById('year-pills-filter'),
@@ -316,6 +317,8 @@ const getBankSubject = (bank) => bank.subject || 'Unlabeled';
 
 const getSubjectFilter = () => DOM.subjectFilter?.value || 'all';
 
+const getBankSearch = () => (DOM.bankSearch?.value || '').toLowerCase().trim();
+
 const normalizeTags = (tags = []) => {
   const list = Array.isArray(tags) ? tags : `${tags || ''}`.split(',');
   return Array.from(
@@ -379,14 +382,17 @@ const getFilteredBanks = () => {
   const filter = getYearFilter();
   const subjectFilter = getSubjectFilter();
   const tagFilter = getTagFilter();
+  const search = getBankSearch();
   const filtered = banks.filter((b) => {
     const yr = getBankYear(b);
     const subj = getBankSubject(b);
     const tags = getBankTags(b);
+    const text = `${b.name} ${yr} ${subj} ${tags.join(' ')}`.toLowerCase();
+    const matchesSearch = !search || text.includes(search);
     const yearMatches = filter === 'all' || yr === filter;
     const subjectMatches = subjectFilter === 'all' || subj === subjectFilter;
     const tagMatches = tagFilter === 'all' || tags.includes(tagFilter);
-    return yearMatches && subjectMatches && tagMatches;
+    return yearMatches && subjectMatches && tagMatches && matchesSearch;
   });
   const normalizeYearSort = (yr) => {
     const match = `${yr}`.match(/(\d+)/);
@@ -1158,6 +1164,7 @@ const init = async () => {
   DOM.bankTable?.addEventListener('change', handleBankTableClick);
   DOM.subjectFilter?.addEventListener('change', renderBanks);
   DOM.tagFilter?.addEventListener('change', renderBanks);
+  DOM.bankSearch?.addEventListener('input', renderBanks);
   DOM.yearPillsFilter?.addEventListener('click', (event) => {
     const pill = event.target.closest('.pill');
     if (!pill?.dataset.year) return;

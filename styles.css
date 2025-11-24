@@ -517,6 +517,10 @@ button.full {
   height: 16px;
 }
 
+.bank-list .actions {
+  flex-shrink: 0;
+}
+
 .list-meta {
   display: grid;
   gap: 4px;

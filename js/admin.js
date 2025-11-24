@@ -158,6 +158,7 @@ const rebuildBankMap = () => {
       name: bank.name,
       year: bank.year || '',
       subject: bank.subject || '',
+      tags: bank.tags || [],
     };
     return acc;
   }, {});
@@ -846,7 +847,8 @@ const renderQuestions = () => {
   const search = (DOM.questionFilterText?.value || '').toLowerCase();
   const filtered = state.questions.filter((q) => {
     const matchesBank = filterBank === 'all' || q.bankId === filterBank;
-    const text = `${q.topic || ''} ${q.stem || ''}`.toLowerCase();
+    const bankTags = (state.bankMap[q.bankId]?.tags || []).join(' ');
+    const text = `${q.topic || ''} ${q.stem || ''} ${bankTags}`.toLowerCase();
     const matchesSearch = !search || text.includes(search);
     return matchesBank && matchesSearch;
   });
