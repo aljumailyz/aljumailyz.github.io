@@ -435,31 +435,52 @@ const renderBanks = () => {
     return;
   }
   const selected = new Set(stateBanks.selected);
-  const rows = sorted
+  const grouped = sorted.reduce((acc, bank) => {
+    const year = getBankYear(bank);
+    const subject = getBankSubject(bank);
+    acc[year] = acc[year] || {};
+    acc[year][subject] = acc[year][subject] || [];
+    acc[year][subject].push(bank);
+    return acc;
+  }, {});
+  const renderBankRow = (b) => `
+    <label class="tree-bank-row">
+      <input type="checkbox" data-bank-id="${b.id}" ${selected.has(b.id) ? 'checked' : ''}>
+      <div>
+        <div class="bank-pill">
+          <strong>${b.name}</strong>
+          ${getBankTags(b)
+            .map((t) => `<span class="pill tone-soft small">#${t}</span>`)
+            .join('')}
+        </div>
+        <div class="muted">${b.questions ? `${b.questions} q` : ''}</div>
+      </div>
+    </label>
+  `;
+  const tree = Object.keys(grouped)
+    .sort()
     .map(
-      (b) => `
-        <tr class="${selected.has(b.id) ? 'selected' : ''}" data-bank-row="${b.id}">
-          <td><input type="checkbox" data-bank-id="${b.id}" ${selected.has(b.id) ? 'checked' : ''}></td>
-          <td>
-            <div class="bank-pill">
-              <strong>${b.name}</strong>
-              ${getBankYear(b) && getBankYear(b) !== 'All' ? `<span class="pill tone-soft small">${getBankYear(b)}</span>` : ''}
-              ${getBankSubject(b) ? `<span class="pill tone-soft small">${getBankSubject(b)}</span>` : ''}
-              ${getBankTags(b)
-                .map((t) => `<span class="pill tone-soft small">#${t}</span>`)
-                .join('')}
-            </div>
-          </td>
-          <td class="muted">${getBankTags(b).map((t) => `#${t}`).join(', ')}</td>
-          <td class="muted">${b.questions ? `${b.questions} q` : ''}</td>
-        </tr>
+      (year) => `
+        <details class="tree-year" open>
+          <summary>${year}</summary>
+          ${Object.keys(grouped[year])
+            .sort()
+            .map(
+              (subject) => `
+                <details class="tree-subject" open>
+                  <summary>${subject}</summary>
+                  <div class="tree-banks">
+                    ${grouped[year][subject].map(renderBankRow).join('')}
+                  </div>
+                </details>
+              `,
+            )
+            .join('')}
+        </details>
       `,
     )
     .join('');
-  DOM.bankTable.innerHTML = `<table>
-    <thead><tr><th></th><th>Bank</th><th>Tags</th><th>Questions</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  DOM.bankTable.innerHTML = `<div class="bank-tree">${tree}</div>`;
   updateBankHint(selected.size);
 };
 

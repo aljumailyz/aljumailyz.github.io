@@ -862,6 +862,79 @@ button.full {
   border-color: #30456a;
 }
 
+.bank-tree {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.tree-year,
+.tree-subject {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--card);
+}
+
+.tree-year summary,
+.tree-subject summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tree-year summary::-webkit-details-marker,
+.tree-subject summary::-webkit-details-marker {
+  display: none;
+}
+
+.tree-banks {
+  padding: 0 10px 8px 28px;
+  display: grid;
+  gap: 6px;
+}
+
+.tree-bank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.tree-bank-row strong {
+  font-size: 14px;
+}
+
+.tree-bank-tags {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+[data-theme='dark'] .bank-tree {
+  background: #111a2c;
+  border-color: #30456a;
+}
+
+[data-theme='dark'] .tree-year,
+[data-theme='dark'] .tree-subject {
+  background: #0f1729;
+  border-color: #2c3b58;
+}
+
+[data-theme='dark'] .tree-bank-row {
+  background: #0f1729;
+  border-color: #2c3b58;
+}
+
 .bank-table table {
   width: 100%;
   border-collapse: collapse;

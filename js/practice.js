@@ -142,7 +142,6 @@ const PREMIUM_TOKEN_LIMIT = 5000;
 const AI_USAGE_KEY = 'examforge.ai.usage';
 const cachedKeys = {
   public: { key: null, model: null },
-  premium: { key: null, model: null },
 };
 
 const getPublicAIKey = () => ''; // disabled; use Supabase-stored key instead
@@ -270,23 +269,24 @@ const updateExplainAvailability = () => {
 };
 
 const fetchAIKeyFromSupabase = async (tier = 'public') => {
-  const cache = cachedKeys[tier] || { key: null, model: null };
-  if (cache.key) return { key: cache.key, model: cache.model || (tier === 'premium' ? PREMIUM_MODEL : getPublicAIModel()) };
-  if (!supabaseAvailable()) return { key: '', model: getPublicAIModel() };
+  const cache = cachedKeys.public;
+  if (cache.key) {
+    return { key: cache.key, model: tier === 'premium' ? PREMIUM_MODEL : cache.model || DEFAULT_MODEL };
+  }
+  if (!supabaseAvailable()) return { key: '', model: tier === 'premium' ? PREMIUM_MODEL : getPublicAIModel() };
   try {
     const client = supabaseClient();
-    const { data, error } = await client.from('ai_keys').select('key, model').eq('id', tier === 'premium' ? 'premium' : 'public').maybeSingle();
+    const { data, error } = await client.from('ai_keys').select('key, model').eq('id', 'public').maybeSingle();
     if (!error && data?.key) {
       cache.key = data.key;
-      cache.model = sanitizeModel(data.model || (tier === 'premium' ? PREMIUM_MODEL : getPublicAIModel()));
-      cachedKeys[tier] = cache;
-      return { key: cache.key, model: cache.model };
+      cache.model = sanitizeModel(data.model || DEFAULT_MODEL);
+      cachedKeys.public = cache;
+      return { key: cache.key, model: tier === 'premium' ? PREMIUM_MODEL : cache.model };
     }
   } catch (_err) {
     // fall back silently
   }
-  if (tier === 'premium') return { key: cachedKeys.public?.key || '', model: PREMIUM_MODEL };
-  return { key: getPublicAIKey(), model: getPublicAIModel() };
+  return { key: getPublicAIKey(), model: tier === 'premium' ? PREMIUM_MODEL : getPublicAIModel() };
 };
 
 const getExplainEndpoint = () => null; // Edge function disabled; client-only OpenRouter via Supabase key
@@ -510,10 +510,8 @@ const explainQuestion = async () => {
   const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
   const wordLimit = state.aiMode === 'detailed' ? 700 : 400;
   const maxTokens = state.aiMode === 'detailed' ? 2200 : 1200;
-  const wantsPremium = hasPremiumAccess() && canUsePremiumTokens(maxTokens);
-  const premiumKey = wantsPremium ? await fetchAIKeyFromSupabase('premium') : { key: '', model: '' };
-  const usingPremium = Boolean(premiumKey.key && wantsPremium);
-  const { key: publicKey, model: publicModel } = usingPremium ? premiumKey : await fetchAIKeyFromSupabase('public');
+  const usingPremium = hasPremiumAccess() && canUsePremiumTokens(maxTokens);
+  const { key: publicKey, model: publicModel } = await fetchAIKeyFromSupabase(usingPremium ? 'premium' : 'public');
   if (!publicKey) {
     showExplainOverlay('No AI key available. Add a key to Supabase table ai_keys (id=public).');
     return;
@@ -593,10 +591,8 @@ const askFollowup = async () => {
   const correctIndex = q.answers?.findIndex((a) => a.isCorrect) ?? 0;
   const wordLimit = state.aiMode === 'detailed' ? 700 : 400;
   const maxTokens = state.aiMode === 'detailed' ? 2200 : 1200;
-  const wantsPremium = hasPremiumAccess() && canUsePremiumTokens(maxTokens);
-  const premiumKey = wantsPremium ? await fetchAIKeyFromSupabase('premium') : { key: '', model: '' };
-  const usingPremium = Boolean(premiumKey.key && wantsPremium);
-  const { key: publicKey, model: publicModel } = usingPremium ? premiumKey : await fetchAIKeyFromSupabase('public');
+  const usingPremium = hasPremiumAccess() && canUsePremiumTokens(maxTokens);
+  const { key: publicKey, model: publicModel } = await fetchAIKeyFromSupabase(usingPremium ? 'premium' : 'public');
   if (!publicKey) {
     showExplainOverlay('No AI key available. Add a key to Supabase table ai_keys (id=public).');
     return;
