@@ -87,6 +87,17 @@ const shuffleArray = (arr = []) => {
   return copy;
 };
 
+const normalizeImages = (images = []) => {
+  const list = Array.isArray(images) ? images : `${images || ''}`.split(',');
+  return Array.from(
+    new Set(
+      list
+        .map((t) => `${t}`.trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, 3);
+};
+
 const normalizeTags = (tags = []) => {
   const list = Array.isArray(tags) ? tags : `${tags || ''}`.split(',');
   return Array.from(
@@ -383,9 +394,8 @@ const renderPractice = () => {
   const submission = submissions[current] || { selected: null, submitted: false, correct: null };
   if (DOM.practiceStem) DOM.practiceStem.textContent = q.stem;
   if (DOM.practiceImages) {
-    const imgs = Array.isArray(q.images) ? q.images : q.imageUrl ? [q.imageUrl] : [];
+    const imgs = normalizeImages(q.images || q.imageUrl || []);
     DOM.practiceImages.innerHTML = imgs
-      .slice(0, 3)
       .map((src) => `<img src="${src}" alt="Question image">`)
       .join('');
   }
