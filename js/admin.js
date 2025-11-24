@@ -1131,29 +1131,46 @@ const importExam = async (exam) => {
   const existing = state.banks.find((b) => b.name.toLowerCase() === exam.bank.name.toLowerCase());
   let bankId = existing?.id;
   if (!bankId) {
-    const { data: bankRows, error: bankErr } = await client
-      .from('banks')
-      .insert(stripTagsIfUnsupported({
-        name: exam.bank.name,
-        description: exam.bank.description || '',
-        year: normalizeYear(exam.bank.year),
-        subject: normalizeSubject(exam.bank.subject),
-        tags: normalizeTags(exam.bank.tags || []),
-      }))
-      .select()
-      .maybeSingle();
-    if (bankErr || !bankRows) throw new Error(bankErr?.message || 'Bank insert failed');
-    bankId = bankRows.id;
+    const insertPayload = stripTagsIfUnsupported({
+      name: exam.bank.name,
+      description: exam.bank.description || '',
+      year: normalizeYear(exam.bank.year),
+      subject: normalizeSubject(exam.bank.subject),
+      tags: normalizeTags(exam.bank.tags || []),
+    });
+    const { data: bankRows, error: bankErr } = await client.from('banks').insert(insertPayload).select().maybeSingle();
+    if (bankErr || !bankRows) {
+      // Retry without tags if schema lacks the column.
+      if (bankErr?.code === '42703') {
+        bankTagsSupported = false;
+        const retryPayload = stripTagsIfUnsupported(insertPayload);
+        const retry = await client.from('banks').insert(retryPayload).select().maybeSingle();
+        if (retry.error || !retry.data) throw new Error(retry.error?.message || 'Bank insert failed (no tags)');
+        bankId = retry.data.id;
+      } else {
+        throw new Error(bankErr?.message || 'Bank insert failed');
+      }
+    } else {
+      bankId = bankRows.id;
+    }
   } else if (exam.bank.year || exam.bank.subject || exam.bank.description) {
-    await client
-      .from('banks')
-      .update(stripTagsIfUnsupported({
-        year: normalizeYear(exam.bank.year) || existing.year || null,
-        subject: normalizeSubject(exam.bank.subject) || existing.subject || null,
-        description: exam.bank.description || existing.description || null,
-        tags: normalizeTags(exam.bank.tags || existing.tags || []),
-      }))
-      .eq('id', bankId);
+    const updatePayload = stripTagsIfUnsupported({
+      year: normalizeYear(exam.bank.year) || existing.year || null,
+      subject: normalizeSubject(exam.bank.subject) || existing.subject || null,
+      description: exam.bank.description || existing.description || null,
+      tags: normalizeTags(exam.bank.tags || existing.tags || []),
+    });
+    const { error: updateErr } = await client.from('banks').update(updatePayload).eq('id', bankId);
+    if (updateErr?.code === '42703') {
+      bankTagsSupported = false;
+      const retry = await client
+        .from('banks')
+        .update(stripTagsIfUnsupported(updatePayload))
+        .eq('id', bankId);
+      if (retry.error) throw new Error(retry.error.message);
+    } else if (updateErr) {
+      throw new Error(updateErr.message);
+    }
   }
   const payload = exam.questions.map((q) => ({ ...q, bank_id: bankId }));
   const { error: qErr } = await client.from('questions').insert(payload);
